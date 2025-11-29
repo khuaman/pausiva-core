@@ -1,0 +1,115 @@
+"""FastAPI router for the chat API."""
+from fastapi import APIRouter, HTTPException
+
+from app.shared.config import get_settings
+
+from .schemas import (
+    CheckinRequest,
+    ContextResponse,
+    MessageRequest,
+    MessageResponse,
+    StorageStatusResponse,
+)
+from .service import get_chat_service
+
+router = APIRouter(tags=["Chat"])
+
+
+@router.post("/message", response_model=MessageResponse)
+async def process_message(request: MessageRequest) -> MessageResponse:
+    """
+    Process a message from a patient.
+
+    Args:
+        request: Message request with phone and message
+
+    Returns:
+        MessageResponse with the reply and metadata
+    """
+    service = get_chat_service()
+
+    try:
+        response = await service.process_message(request.phone, request.message)
+        return MessageResponse(
+            reply_text=response.reply_text,
+            actions=response.actions,
+            risk_level=response.risk_level.value,
+            risk_score=response.risk_score,
+            symptom_summary=response.symptom_summary,
+            medication_schedule=response.medication_schedule,
+            appointments=response.appointments,
+            follow_up_questions=response.follow_up_questions,
+            agent_used=response.agent_used,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/checkin", response_model=MessageResponse)
+async def send_checkin(request: CheckinRequest) -> MessageResponse:
+    """
+    Send a proactive check-in message to a patient.
+
+    Args:
+        request: Check-in request with phone number
+
+    Returns:
+        MessageResponse with the check-in message
+    """
+    service = get_chat_service()
+
+    try:
+        response = await service.send_checkin(request.phone)
+        return MessageResponse(
+            reply_text=response.reply_text,
+            actions=response.actions,
+            risk_level=response.risk_level.value,
+            risk_score=response.risk_score,
+            agent_used=response.agent_used,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/context/{phone}", response_model=ContextResponse)
+async def get_context(phone: str) -> ContextResponse:
+    """
+    Get the context for a patient.
+
+    Args:
+        phone: Patient phone number
+
+    Returns:
+        ContextResponse with patient context
+    """
+    service = get_chat_service()
+
+    try:
+        context = service.get_patient_context(phone)
+        return ContextResponse(**context)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/storage/status", response_model=StorageStatusResponse)
+async def get_storage_status() -> StorageStatusResponse:
+    """
+    Get the storage status.
+
+    Returns:
+        StorageStatusResponse with storage mode and configuration
+    """
+    settings = get_settings()
+
+    masked_url = None
+    if settings.SUPABASE_URL:
+        parts = settings.SUPABASE_URL.split(".")
+        if len(parts) >= 2:
+            masked_url = f"{parts[0][:12]}...{parts[-1]}"
+
+    return StorageStatusResponse(
+        mode="supabase" if settings.supabase_configured else "json",
+        supabase_configured=settings.supabase_configured,
+        supabase_url=masked_url,
+    )
+
