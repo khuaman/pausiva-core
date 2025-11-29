@@ -1,2 +1,6 @@
 # Environment
 .venv
+
+# Cursor
+.cursor/content/*
+!.cursor/content/.gitkeep
