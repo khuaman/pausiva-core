@@ -1,6 +1,7 @@
 """
 Pausiva Chat Orchestrator - LangGraph-based message routing.
 """
+
 from typing import Literal
 
 from langchain_core.messages import AIMessage, HumanMessage
@@ -20,7 +21,7 @@ from .agents import (
 )
 from .core.prompts import ResponseTemplates
 from .core.schemas import InputState, OutputState, OverallState
-from .core.types import ConversationTopic, MessageCategory
+from .core.types import ConversationTopic, MessageCategory  # noqa: F401
 
 
 def classify_message(state: OverallState) -> dict:
@@ -165,4 +166,3 @@ graph_builder.add_edge("general", END)
 
 # Compile the graph
 graph = graph_builder.compile(name="pausiva_chat")
-

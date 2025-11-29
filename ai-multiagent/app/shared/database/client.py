@@ -1,4 +1,5 @@
 """Supabase client configuration and initialization."""
+
 from typing import Optional
 
 try:
@@ -64,4 +65,3 @@ class SupabaseClient:
 def get_supabase_client() -> Optional[Client]:
     """Convenience function to get Supabase client."""
     return SupabaseClient.get_client()
-

@@ -4,3 +4,6 @@
 # Cursor
 .cursor/content/*
 !.cursor/content/.gitkeep
+
+# Tests
+tests/*.py
