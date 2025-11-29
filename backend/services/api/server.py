@@ -28,9 +28,11 @@ sys.path.insert(0, str(agent_path))
 from pausiva_agent import PausivaOrchestrator
 
 # Rutas
-ROOT_PATH = Path(__file__).parent.parent.parent
+# backend/services/api/server.py -> backend/ -> pausiva-core/
+BACKEND_PATH = Path(__file__).parent.parent.parent
+ROOT_PATH = BACKEND_PATH.parent  # pausiva-core/
 DATA_PATH = ROOT_PATH / "data"
-DOCS_PATH = ROOT_PATH / "docs"
+DOCS_PATH = BACKEND_PATH / "docs"  # backend/docs/
 
 # Instancia global del orquestador
 pausiva = PausivaOrchestrator(storage_path=str(DATA_PATH))

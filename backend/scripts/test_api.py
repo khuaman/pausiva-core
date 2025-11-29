@@ -18,8 +18,10 @@ sys.path.insert(0, str(agent_path))
 
 from pausiva_agent import PausivaOrchestrator
 
-# Ruta de datos
-DATA_PATH = Path(__file__).parent.parent / "data"
+# Ruta de datos (data/ está en la raíz del monorepo, no en backend/)
+BACKEND_PATH = Path(__file__).parent.parent
+ROOT_PATH = BACKEND_PATH.parent
+DATA_PATH = ROOT_PATH / "data"
 
 
 def send_message(pausiva: PausivaOrchestrator, phone: str, message: str) -> dict:

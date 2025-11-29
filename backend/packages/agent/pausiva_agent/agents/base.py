@@ -18,7 +18,7 @@ from ..memory.patient_context import PatientContext
 def load_env():
     """Carga variables de entorno desde .env en la raíz del monorepo."""
     current = Path(__file__).parent
-    for _ in range(6):
+    for _ in range(8):  # Buscar más niveles para la nueva estructura backend/
         env_path = current / ".env"
         if env_path.exists():
             with open(env_path) as f:
@@ -192,16 +192,32 @@ class BaseAgent(ABC):
     ) -> AgentResponse:
         """
         Procesamiento por defecto que pueden usar los agentes.
-        Incluye contexto enriquecido de Supabase.
+        Incluye contexto enriquecido y estado de conversación.
         """
         # Construir mensajes para el modelo
         messages = context.conversation.get_context_for_model()
         
-        # Agregar contexto de la paciente (ahora con datos de Supabase)
+        # Agregar contexto de la paciente
         context_message = self._build_context_message(context)
         
-        # Agregar el mensaje actual con contexto
-        full_message = f"{context_message}\n\n{additional_prompt}\n\n[MENSAJE DE LA PACIENTE]: {message}"
+        # Agregar estado de conversación
+        conversation_state = self._build_conversation_state(context)
+        
+        # Agregar el mensaje actual con contexto completo
+        full_message = f"""{context_message}
+
+{conversation_state}
+
+{additional_prompt}
+
+[MENSAJE DE LA PACIENTE]: {message}
+
+RECUERDA:
+- Responde de forma conversacional y empática.
+- NUNCA cortes la conversación abruptamente.
+- Si hay pregunta pendiente, verifica si la está respondiendo.
+- Siempre ofrece continuar ayudando al final."""
+        
         messages.append({
             "role": "user",
             "parts": [{"text": full_message}]
@@ -217,6 +233,34 @@ class BaseAgent(ABC):
         self._update_context(context, message, response)
         
         return response
+    
+    def _build_conversation_state(self, context: PatientContext) -> str:
+        """Construye información del estado de conversación."""
+        state = context.conversation.state
+        parts = ["[ESTADO DE CONVERSACIÓN]:"]
+        
+        if state.active_topic.value != "none":
+            parts.append(f"Tema activo: {state.active_topic.value}")
+        
+        if state.last_agent:
+            parts.append(f"Último agente: {state.last_agent}")
+        
+        if state.pending_question:
+            parts.append(f"PREGUNTA PENDIENTE: {state.pending_question}")
+            parts.append("(Verifica si el mensaje actual responde a esta pregunta)")
+        
+        if state.turns_on_topic > 0:
+            parts.append(f"Turnos en este tema: {state.turns_on_topic}")
+        
+        if state.awaiting_response:
+            parts.append("ESPERANDO RESPUESTA de la paciente a pregunta anterior")
+        
+        # Resumen de conversación
+        conversation_context = context.conversation.get_conversation_context()
+        if conversation_context:
+            parts.append(f"\n{conversation_context}")
+        
+        return "\n".join(parts)
     
     def _update_context(
         self,

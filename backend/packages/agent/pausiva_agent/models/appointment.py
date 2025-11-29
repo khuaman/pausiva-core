@@ -59,13 +59,32 @@ class Appointment:
             created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now()
         )
     
-    def get_datetime(self) -> datetime:
-        """Retorna la fecha y hora de la cita como datetime."""
-        return datetime.strptime(f"{self.date} {self.time}", "%Y-%m-%d %H:%M")
+    def get_datetime(self) -> Optional[datetime]:
+        """
+        Retorna la fecha y hora de la cita como datetime.
+        Maneja diferentes formatos de fecha.
+        """
+        try:
+            # Formato ISO estándar
+            return datetime.strptime(f"{self.date} {self.time}", "%Y-%m-%d %H:%M")
+        except ValueError:
+            try:
+                # Intentar solo con hora si la fecha no es válida
+                # Esto puede pasar cuando el modelo devuelve "viernes" en lugar de fecha ISO
+                return None
+            except Exception:
+                return None
     
     def is_upcoming(self) -> bool:
         """Verifica si la cita es futura."""
-        return self.get_datetime() > datetime.now() and self.status in [
+        dt = self.get_datetime()
+        if dt is None:
+            # Si no podemos parsear la fecha, asumimos que es futura
+            return self.status in [
+                AppointmentStatus.SCHEDULED,
+                AppointmentStatus.CONFIRMED
+            ]
+        return dt > datetime.now() and self.status in [
             AppointmentStatus.SCHEDULED,
             AppointmentStatus.CONFIRMED
         ]

@@ -57,14 +57,14 @@ class StorageManager:
     def _find_data_path(self) -> Path:
         """Find data directory in monorepo."""
         current = Path(__file__).parent
-        for _ in range(6):
+        for _ in range(8):  # Buscar más niveles para la nueva estructura
             potential_data = current / "data"
             if potential_data.exists():
                 return potential_data
             current = current.parent
         
-        # Default to monorepo root
-        monorepo_root = Path(__file__).parent.parent.parent.parent.parent
+        # Default: memory/ -> pausiva_agent/ -> agent/ -> packages/ -> backend/ -> pausiva-core/
+        monorepo_root = Path(__file__).parent.parent.parent.parent.parent.parent
         return monorepo_root / "data"
     
     def _ensure_directories(self):
