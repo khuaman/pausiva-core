@@ -1,0 +1,16 @@
+{
+  "phone_number": "+56911112222",
+  "medications": [
+    {
+      "name": "Sin nombre",
+      "raw_text": "",
+      "frequency_text": "",
+      "times_of_day": [],
+      "duration_days": null,
+      "start_date": "2025-11-29",
+      "notes": "",
+      "is_active": true
+    }
+  ],
+  "updated_at": "2025-11-29T16:24:16.647318"
+}

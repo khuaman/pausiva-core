@@ -1,0 +1,67 @@
+{
+  "phone_number": "+56987654321",
+  "messages": [
+    {
+      "content": "Hola",
+      "message_type": "user",
+      "timestamp": "2025-11-29T13:56:06.815785",
+      "phone_number": "+56987654321",
+      "metadata": {}
+    },
+    {
+      "content": "Hola, bienvenida a Pausiva.\n\nSoy tu asistente de acompañamiento diario. Estoy aquí para ayudarte a:\n\n- Hacer seguimiento de cómo te sientes\n- Recordarte tus medicamentos\n- Recordarte tus citas médicas\n\n¿Cómo te sientes hoy?",
+      "message_type": "assistant",
+      "timestamp": "2025-11-29T13:56:06.815949",
+      "phone_number": "+56987654321",
+      "metadata": {
+        "agent": "orchestrator",
+        "type": "welcome"
+      }
+    },
+    {
+      "content": "\n    Mi doctora me recetó:\n    - Metformina 850mg, 1 tableta con el desayuno y 1 con la cena\n    - Enalapril 10mg, 1 tableta en la mañana\n    Por 30 días\n    ",
+      "message_type": "user",
+      "timestamp": "2025-11-29T13:56:10.748053",
+      "phone_number": "+56987654321",
+      "metadata": {}
+    },
+    {
+      "content": "Entendido. He registrado tus medicamentos:\n\n- Metformina 850mg: una tableta con el desayuno y una con la cena, por 30 días.\n- Enalapril 10mg: una tableta en la mañana, por 30 días.\n\nPara poder configurar tus recordatorios, ¿podrías indicarme a qué hora sueles desayunar, cenar y tomar tu medicamento de la mañana?",
+      "message_type": "assistant",
+      "timestamp": "2025-11-29T13:56:10.748888",
+      "phone_number": "+56987654321",
+      "metadata": {
+        "agent": "medication",
+        "risk_level": "none"
+      }
+    },
+    {
+      "content": "Hola, qué gusto saludarte de nuevo.\n\n¿Cómo has estado? ¿Hay algo en lo que pueda ayudarte hoy?",
+      "message_type": "assistant",
+      "timestamp": "2025-11-29T14:01:59.579540",
+      "phone_number": "+56987654321",
+      "metadata": {
+        "agent": "orchestrator",
+        "type": "greeting"
+      }
+    },
+    {
+      "content": "\n    Mi doctora me recetó:\n    - Metformina 850mg, 1 tableta con el desayuno y 1 con la cena\n    - Enalapril 10mg, 1 tableta en la mañana\n    Por 30 días\n    ",
+      "message_type": "user",
+      "timestamp": "2025-11-29T14:02:03.572564",
+      "phone_number": "+56987654321",
+      "metadata": {}
+    },
+    {
+      "content": "Entendido, ya tengo registrada la medicación que me indicaste: Metformina 850mg (una tableta con el desayuno y una con la cena) y Enalapril 10mg (una tableta en la mañana), ambos por 30 días.\n\nPara poder configurar tus recordatorios, necesito que me digas a qué hora sueles desayunar, cenar y tomar tu medicamento de la mañana.",
+      "message_type": "assistant",
+      "timestamp": "2025-11-29T14:02:03.573772",
+      "phone_number": "+56987654321",
+      "metadata": {
+        "agent": "medication",
+        "risk_level": "none"
+      }
+    }
+  ],
+  "updated_at": "2025-11-29T14:02:03.573805"
+}

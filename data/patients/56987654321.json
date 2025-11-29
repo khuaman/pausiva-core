@@ -1,0 +1,16 @@
+{
+  "phone_number": "+56987654321",
+  "name": null,
+  "profile": {
+    "age": null,
+    "medical_conditions": [],
+    "allergies": [],
+    "current_medications": [],
+    "notes": ""
+  },
+  "created_at": "2025-11-29T13:56:06.815507",
+  "last_interaction": "2025-11-29T13:56:10.750579",
+  "current_risk_level": "none",
+  "current_risk_score": 0,
+  "updated_at": "2025-11-29T13:56:10.750593"
+}

@@ -1,0 +1,162 @@
+{
+  "phone_number": "+56911112222",
+  "messages": [
+    {
+      "content": "Hola",
+      "message_type": "user",
+      "timestamp": "2025-11-29T16:22:34.596924",
+      "phone_number": "+56911112222",
+      "metadata": {}
+    },
+    {
+      "content": "Hola, bienvenida a Pausiva.\n\nSoy tu asistente de acompañamiento diario. Estoy aquí para escucharte y ayudarte con:\n\n- Seguimiento de cómo te sientes día a día\n- Recordatorios de medicamentos\n- Recordatorios de citas médicas\n\nCuéntame, ¿cómo te sientes hoy?",
+      "message_type": "assistant",
+      "timestamp": "2025-11-29T16:22:34.597053",
+      "phone_number": "+56911112222",
+      "metadata": {
+        "agent": "orchestrator",
+        "type": "welcome",
+        "conversation_state": {
+          "active_topic": "checkin",
+          "pending_question": null,
+          "pending_action": null,
+          "last_agent": "orchestrator",
+          "turns_on_topic": 0,
+          "awaiting_response": false,
+          "context_data": {}
+        }
+      }
+    },
+    {
+      "content": "Me siento cansada y con dolor de cabeza",
+      "message_type": "user",
+      "timestamp": "2025-11-29T16:22:44.562900",
+      "phone_number": "+56911112222",
+      "metadata": {}
+    },
+    {
+      "content": "Hola, entiendo. Sentirse cansada y con dolor de cabeza no es agradable. ¿Desde cuándo te sientes así? ¿Es un dolor de cabeza fuerte o más bien leve?",
+      "message_type": "assistant",
+      "timestamp": "2025-11-29T16:22:44.563999",
+      "phone_number": "+56911112222",
+      "metadata": {
+        "agent": "checkin",
+        "risk_level": "low",
+        "conversation_state": {
+          "active_topic": "checkin",
+          "pending_question": null,
+          "pending_action": null,
+          "last_agent": "orchestrator",
+          "turns_on_topic": 0,
+          "awaiting_response": false,
+          "context_data": {}
+        }
+      }
+    },
+    {
+      "content": "Desde ayer en la noche, es leve pero molesto",
+      "message_type": "user",
+      "timestamp": "2025-11-29T16:22:55.923553",
+      "phone_number": "+56911112222",
+      "metadata": {}
+    },
+    {
+      "content": "Entiendo, desde anoche y es leve pero molesto. A veces, un poco de descanso y mantenerte bien hidratada puede ayudar con esas molestias. Si el dolor persiste o se vuelve más intenso, siempre es buena idea consultarlo con tu médica, ¿sí? Recuerda que mi orientación no reemplaza una consulta profesional.\n\n¿Hay algo más en lo que pueda ayudarte hoy o alguna otra cosa que quieras contarme?",
+      "message_type": "assistant",
+      "timestamp": "2025-11-29T16:22:55.924611",
+      "phone_number": "+56911112222",
+      "metadata": {
+        "agent": "medication",
+        "risk_level": "low",
+        "conversation_state": {
+          "active_topic": "checkin",
+          "pending_question": null,
+          "pending_action": null,
+          "last_agent": "orchestrator",
+          "turns_on_topic": 0,
+          "awaiting_response": false,
+          "context_data": {}
+        }
+      }
+    },
+    {
+      "content": "Sí, necesito que me recuerdes tomar Ibuprofeno 400mg cada 8 horas",
+      "message_type": "user",
+      "timestamp": "2025-11-29T16:23:10.012027",
+      "phone_number": "+56911112222",
+      "metadata": {}
+    },
+    {
+      "content": "Claro, con gusto te ayudaré con eso. Entonces, te recordaré tomar Ibuprofeno 400mg cada 8 horas. Para que pueda programar los recordatorios, ¿a qué hora te gustaría tomar la primera dosis? Así puedo calcular las siguientes.",
+      "message_type": "assistant",
+      "timestamp": "2025-11-29T16:23:10.013120",
+      "phone_number": "+56911112222",
+      "metadata": {
+        "agent": "medication",
+        "risk_level": "low",
+        "conversation_state": {
+          "active_topic": "checkin",
+          "pending_question": null,
+          "pending_action": null,
+          "last_agent": "orchestrator",
+          "turns_on_topic": 0,
+          "awaiting_response": false,
+          "context_data": {}
+        }
+      }
+    },
+    {
+      "content": "A las 8 de la mañana",
+      "message_type": "user",
+      "timestamp": "2025-11-29T16:24:04.278592",
+      "phone_number": "+56911112222",
+      "metadata": {}
+    },
+    {
+      "content": "Perfecto, entonces te recordaré tomar Ibuprofeno 400mg a las 8 de la mañana, a las 4 de la tarde y a las 12 de la noche. ¿Por cuántos días o por cuánto tiempo necesitas que te recuerde este medicamento?",
+      "message_type": "assistant",
+      "timestamp": "2025-11-29T16:24:04.279446",
+      "phone_number": "+56911112222",
+      "metadata": {
+        "agent": "medication",
+        "risk_level": "low",
+        "conversation_state": {
+          "active_topic": "checkin",
+          "pending_question": null,
+          "pending_action": null,
+          "last_agent": "orchestrator",
+          "turns_on_topic": 0,
+          "awaiting_response": false,
+          "context_data": {}
+        }
+      }
+    },
+    {
+      "content": "Por 3 días. Por cierto, tengo una cita con el ginecólogo el viernes a las 10",
+      "message_type": "user",
+      "timestamp": "2025-11-29T16:24:16.643656",
+      "phone_number": "+56911112222",
+      "metadata": {}
+    },
+    {
+      "content": "Entendido. Entonces, los recordatorios para el Ibuprofeno 400mg a las 8 de la mañana, 4 de la tarde y 12 de la noche quedarán programados por 3 días. \n\nY sobre tu cita con el ginecólogo el viernes a las 10, ¡gracias por avisarme! ¿Te gustaría que te envíe un recordatorio el día antes o el mismo viernes por la mañana?",
+      "message_type": "assistant",
+      "timestamp": "2025-11-29T16:24:16.644662",
+      "phone_number": "+56911112222",
+      "metadata": {
+        "agent": "appointments",
+        "risk_level": "low",
+        "conversation_state": {
+          "active_topic": "checkin",
+          "pending_question": null,
+          "pending_action": null,
+          "last_agent": "orchestrator",
+          "turns_on_topic": 0,
+          "awaiting_response": false,
+          "context_data": {}
+        }
+      }
+    }
+  ],
+  "updated_at": "2025-11-29T16:24:16.644707"
+}
