@@ -20,35 +20,38 @@ Pausiva es un asistente de IA que proporciona:
 
 ```
 pausiva-core/
-├── packages/
-│   ├── agent/                      # Paquete del agente de IA
-│   │   ├── pausiva_agent/          # Código Python importable
-│   │   │   ├── agents/             # Agentes especializados
-│   │   │   │   ├── base.py         # Clase base
-│   │   │   │   ├── orchestrator.py # Orquestador principal
-│   │   │   │   ├── triage.py       # Clasificación de riesgo
-│   │   │   │   ├── medication.py   # Gestión de medicación
-│   │   │   │   ├── appointments.py # Gestión de citas
-│   │   │   │   ├── checkin.py      # Check-in diario
-│   │   │   │   └── prompts/        # Prompts del sistema
-│   │   │   ├── models/             # Modelos de datos
-│   │   │   └── memory/             # Sistema de memoria
-│   │   ├── pyproject.toml
-│   │   └── README.md
+├── backend/                        # Backend Python
+│   ├── packages/
+│   │   ├── agent/                  # Paquete del agente de IA
+│   │   │   ├── pausiva_agent/      # Código Python importable
+│   │   │   │   ├── agents/         # Agentes especializados
+│   │   │   │   ├── database/       # Integración Supabase
+│   │   │   │   ├── models/         # Modelos de datos
+│   │   │   │   └── memory/         # Sistema de memoria
+│   │   │   ├── pyproject.toml
+│   │   │   └── README.md
+│   │   │
+│   │   └── whatsapp/               # Integración con WhatsApp
+│   │       └── README.md
 │   │
-│   └── whatsapp/                   # Integración con WhatsApp
-│       └── README.md               # Instrucciones para integración
+│   ├── services/
+│   │   └── api/
+│   │       └── server.py           # Servidor HTTP REST
+│   │
+│   ├── scripts/
+│   │   ├── test_api.py             # Testing con JSON output
+│   │   └── main.py                 # Demo del sistema
+│   │
+│   └── docs/
+│       └── openapi.yaml            # Especificación Swagger/OpenAPI
 │
-├── services/
-│   └── api/
-│       └── server.py               # Servidor HTTP REST
+├── dashboard/                      # Frontend Next.js
+│   ├── app/                        # App Router
+│   ├── components/                 # Componentes React
+│   └── supabase/                   # Migraciones Supabase
 │
-├── scripts/
-│   ├── test_api.py                 # Testing con JSON output
-│   └── main.py                     # Demo del sistema
-│
-├── docs/
-│   └── openapi.yaml                # Especificación Swagger/OpenAPI
+├── wa-agent-gateway/               # Gateway WhatsApp (Node.js)
+│   └── src/
 │
 ├── data/                           # Datos de pacientes (gitignored)
 │   ├── patients/
@@ -57,6 +60,7 @@ pausiva-core/
 │   ├── appointments/
 │   └── symptoms/
 │
+├── env/                            # Virtual environment Python
 ├── .env                            # Variables de entorno
 ├── .gitignore
 ├── requirements.txt
@@ -97,9 +101,9 @@ pip install -r requirements.txt
 ### 4. Instalar el paquete agent (modo desarrollo)
 
 ```bash
-cd packages/agent
+cd backend/packages/agent
 pip install -e .
-cd ../..
+cd ../../..
 ```
 
 ### 5. Configurar API Key
@@ -120,25 +124,25 @@ Obtén tu API key en: https://aistudio.google.com/app/apikey
 
 ```bash
 # Enviar mensaje
-python scripts/test_api.py --phone "+56912345678" --message "Hola, me duele la cabeza"
+python backend/scripts/test_api.py --phone "+56912345678" --message "Hola, me duele la cabeza"
 
 # Ver contexto de una paciente
-python scripts/test_api.py --phone "+56912345678" --context
+python backend/scripts/test_api.py --phone "+56912345678" --context
 
 # Reset paciente (para testing)
-python scripts/test_api.py --phone "+56912345678" --reset
+python backend/scripts/test_api.py --phone "+56912345678" --reset
 ```
 
 ### Demo del sistema
 
 ```bash
-python scripts/main.py
+python backend/scripts/main.py
 ```
 
 ### Servidor HTTP REST
 
 ```bash
-python services/api/server.py
+python backend/services/api/server.py
 
 # El servidor escucha en http://localhost:8080
 # Ver documentación en: http://localhost:8080/docs (Swagger UI)
@@ -282,7 +286,7 @@ curl -X DELETE http://localhost:8080/patient/+56912345678
 
 ```python
 import sys
-sys.path.insert(0, "packages/agent")
+sys.path.insert(0, "backend/packages/agent")
 
 from pausiva_agent import PausivaOrchestrator
 
@@ -457,7 +461,7 @@ Ver `packages/whatsapp/README.md` para instrucciones detalladas.
 ```python
 # En tu webhook de WhatsApp
 import sys
-sys.path.insert(0, "packages/agent")
+sys.path.insert(0, "backend/packages/agent")
 
 from pausiva_agent import PausivaOrchestrator
 
@@ -511,7 +515,7 @@ for phone in active_patients:
 
 ### Cambiar prompts del sistema
 
-Edita `packages/agent/pausiva_agent/agents/prompts/system.py`:
+Edita `backend/packages/agent/pausiva_agent/agents/prompts/system.py`:
 
 ```python
 BASE_SYSTEM_PROMPT = """Tu prompt personalizado..."""
@@ -520,7 +524,7 @@ TRIAGE_PROMPT = """Instrucciones de triaje..."""
 
 ### Agregar respuestas predefinidas
 
-Edita `packages/agent/pausiva_agent/agents/prompts/templates.py`:
+Edita `backend/packages/agent/pausiva_agent/agents/prompts/templates.py`:
 
 ```python
 class ResponseTemplates:
@@ -530,7 +534,7 @@ class ResponseTemplates:
 
 ### Cambiar modelo de IA
 
-En `packages/agent/pausiva_agent/agents/base.py`:
+En `backend/packages/agent/pausiva_agent/agents/base.py`:
 
 ```python
 class BaseAgent:
@@ -734,7 +738,7 @@ response = pausiva.process_message("+56912345678", "Hola")
 
 ```bash
 # Instalar en modo desarrollo
-cd packages/agent
+cd backend/packages/agent
 pip install -e .
 ```
 
@@ -742,11 +746,11 @@ pip install -e .
 
 ```bash
 # Test con mensaje único
-python scripts/test_api.py -p "+56900000001" -m "Hola"
+python backend/scripts/test_api.py -p "+56900000001" -m "Hola"
 
 # Reset y test
-python scripts/test_api.py -p "+56900000001" --reset
-python scripts/test_api.py -p "+56900000001" -m "Hola"
+python backend/scripts/test_api.py -p "+56900000001" --reset
+python backend/scripts/test_api.py -p "+56900000001" -m "Hola"
 ```
 
 ---

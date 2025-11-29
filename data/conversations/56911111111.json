@@ -1,0 +1,67 @@
+{
+  "phone_number": "+56911111111",
+  "messages": [
+    {
+      "content": "Hola",
+      "message_type": "user",
+      "timestamp": "2025-11-29T13:56:10.751492",
+      "phone_number": "+56911111111",
+      "metadata": {}
+    },
+    {
+      "content": "Hola, bienvenida a Pausiva.\n\nSoy tu asistente de acompañamiento diario. Estoy aquí para ayudarte a:\n\n- Hacer seguimiento de cómo te sientes\n- Recordarte tus medicamentos\n- Recordarte tus citas médicas\n\n¿Cómo te sientes hoy?",
+      "message_type": "assistant",
+      "timestamp": "2025-11-29T13:56:10.751724",
+      "phone_number": "+56911111111",
+      "metadata": {
+        "agent": "orchestrator",
+        "type": "welcome"
+      }
+    },
+    {
+      "content": "Tengo un dolor muy fuerte en el pecho y me cuesta respirar",
+      "message_type": "user",
+      "timestamp": "2025-11-29T13:56:13.707883",
+      "phone_number": "+56911111111",
+      "metadata": {}
+    },
+    {
+      "content": "Entiendo que estás sintiendo un dolor muy fuerte en el pecho y te cuesta respirar. Esto suena muy preocupante. Por favor, busca atención médica de urgencia de inmediato. Llama a un servicio de emergencias o ve al centro de salud más cercano lo antes posible. Recuerda que mi orientación no sustituye una consulta médica.",
+      "message_type": "assistant",
+      "timestamp": "2025-11-29T13:56:13.708653",
+      "phone_number": "+56911111111",
+      "metadata": {
+        "agent": "triage",
+        "risk_level": "high"
+      }
+    },
+    {
+      "content": "Hola, qué gusto saludarte de nuevo.\n\n¿Cómo has estado? ¿Hay algo en lo que pueda ayudarte hoy?",
+      "message_type": "assistant",
+      "timestamp": "2025-11-29T14:02:03.576137",
+      "phone_number": "+56911111111",
+      "metadata": {
+        "agent": "orchestrator",
+        "type": "greeting"
+      }
+    },
+    {
+      "content": "Tengo un dolor muy fuerte en el pecho y me cuesta respirar",
+      "message_type": "user",
+      "timestamp": "2025-11-29T14:02:08.866752",
+      "phone_number": "+56911111111",
+      "metadata": {}
+    },
+    {
+      "content": "Entiendo que sigues sintiendo un dolor muy fuerte en el pecho y te cuesta respirar. Esto es una situación grave y requiere atención médica de urgencia inmediata. Por favor, no esperes y busca ayuda médica lo antes posible. Llama a un servicio de emergencias o dirígete al centro de salud más cercano. Recuerda que mi orientación no sustituye una consulta médica.",
+      "message_type": "assistant",
+      "timestamp": "2025-11-29T14:02:08.867509",
+      "phone_number": "+56911111111",
+      "metadata": {
+        "agent": "triage",
+        "risk_level": "high"
+      }
+    }
+  ],
+  "updated_at": "2025-11-29T14:02:08.867528"
+}

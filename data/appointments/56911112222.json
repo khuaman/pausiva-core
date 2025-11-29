@@ -1,0 +1,17 @@
+{
+  "phone_number": "+56911112222",
+  "appointments": [
+    {
+      "appointment_id": "77951249",
+      "phone_number": "+56911112222",
+      "date": "viernes",
+      "time": "10:00",
+      "specialist_type": "Consulta general",
+      "status": "scheduled",
+      "notes": "",
+      "google_calendar_id": null,
+      "created_at": "2025-11-29T16:24:16.647176"
+    }
+  ],
+  "updated_at": "2025-11-29T16:24:16.647449"
+}
