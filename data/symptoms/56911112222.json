@@ -1,0 +1,36 @@
+{
+  "phone_number": "+56911112222",
+  "entries": [
+    {
+      "summary": "Reporta cansancio y dolor de cabeza.",
+      "risk_level": "low",
+      "risk_score": 20,
+      "timestamp": "2025-11-29T16:22:44.566744"
+    },
+    {
+      "summary": "La paciente reporta cansancio y dolor de cabeza leve pero molesto desde anoche.",
+      "risk_level": "low",
+      "risk_score": 20,
+      "timestamp": "2025-11-29T16:22:55.927298"
+    },
+    {
+      "summary": "La paciente reporta cansancio y dolor de cabeza leve pero molesto desde anoche.",
+      "risk_level": "low",
+      "risk_score": 20,
+      "timestamp": "2025-11-29T16:23:10.016515"
+    },
+    {
+      "summary": "La paciente reporta cansancio y dolor de cabeza leve pero molesto desde anoche.",
+      "risk_level": "low",
+      "risk_score": 20,
+      "timestamp": "2025-11-29T16:24:04.281525"
+    },
+    {
+      "summary": "cansancio y dolor de cabeza leve pero molesto",
+      "risk_level": "low",
+      "risk_score": 20,
+      "timestamp": "2025-11-29T16:24:16.646920"
+    }
+  ],
+  "updated_at": "2025-11-29T16:24:16.646924"
+}

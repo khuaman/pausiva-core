@@ -1,0 +1,18 @@
+{
+  "phone_number": "+56900000001",
+  "entries": [
+    {
+      "summary": "La paciente reporta sentirse muy cansada y con dolor de cabeza.",
+      "risk_level": "low",
+      "risk_score": 20,
+      "timestamp": "2025-11-29T14:04:07.837373"
+    },
+    {
+      "summary": "La paciente reporta dolor muy fuerte en el pecho y dificultad para respirar.",
+      "risk_level": "high",
+      "risk_score": 90,
+      "timestamp": "2025-11-29T14:04:21.209233"
+    }
+  ],
+  "updated_at": "2025-11-29T14:04:21.209237"
+}

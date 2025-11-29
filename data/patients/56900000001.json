@@ -1,0 +1,16 @@
+{
+  "phone_number": "+56900000001",
+  "name": null,
+  "profile": {
+    "age": null,
+    "medical_conditions": [],
+    "allergies": [],
+    "current_medications": [],
+    "notes": ""
+  },
+  "created_at": "2025-11-29T14:03:56.663929",
+  "last_interaction": "2025-11-29T14:04:21.208358",
+  "current_risk_level": "high",
+  "current_risk_score": 90,
+  "updated_at": "2025-11-29T14:04:21.208384"
+}

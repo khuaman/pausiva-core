@@ -1,0 +1,18 @@
+{
+  "phone_number": "+56912345678",
+  "entries": [
+    {
+      "summary": "Cansancio y dolor de cabeza leve.",
+      "risk_level": "none",
+      "risk_score": 0,
+      "timestamp": "2025-11-29T13:56:06.814894"
+    },
+    {
+      "summary": "Cansancio y dolor de cabeza leve.",
+      "risk_level": "none",
+      "risk_score": 0,
+      "timestamp": "2025-11-29T14:01:59.578346"
+    }
+  ],
+  "updated_at": "2025-11-29T14:01:59.578353"
+}

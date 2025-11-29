@@ -1,0 +1,18 @@
+{
+  "phone_number": "+56911111111",
+  "entries": [
+    {
+      "summary": "Dolor muy fuerte en el pecho, dificultad para respirar",
+      "risk_level": "high",
+      "risk_score": 95,
+      "timestamp": "2025-11-29T13:56:13.710236"
+    },
+    {
+      "summary": "Dolor muy fuerte en el pecho, dificultad para respirar",
+      "risk_level": "high",
+      "risk_score": 95,
+      "timestamp": "2025-11-29T14:02:08.869088"
+    }
+  ],
+  "updated_at": "2025-11-29T14:02:08.869100"
+}
