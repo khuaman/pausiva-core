@@ -1,4 +1,5 @@
 """LLM client factory using LangChain."""
+
 from functools import lru_cache
 from typing import Literal
 
@@ -16,6 +17,10 @@ type AllowedModel = Literal[
 ]
 
 
+DEFAULT_MODEL: AllowedModel = "gemini-2.0-flash"
+DEFAULT_TEMPERATURE: float = 0.7
+
+
 @lru_cache
 def get_model(
     model_name: AllowedModel | None = None,
@@ -25,16 +30,16 @@ def get_model(
     Get a LangChain chat model instance.
 
     Args:
-        model_name: Name of the model to use (defaults to settings)
-        temperature: Temperature for generation (defaults to settings)
+        model_name: Name of the model to use (defaults to gemini-2.0-flash)
+        temperature: Temperature for generation (defaults to 0.7)
 
     Returns:
         A configured chat model instance
     """
     settings = get_settings()
 
-    model = model_name or settings.LLM_MODEL
-    temp = temperature if temperature is not None else settings.LLM_TEMPERATURE
+    model = model_name or DEFAULT_MODEL
+    temp = temperature if temperature is not None else DEFAULT_TEMPERATURE
 
     return ChatGoogleGenerativeAI(
         model=model,
@@ -92,4 +97,3 @@ def get_extraction_model(
         A configured chat model instance
     """
     return get_model(model_name=model_name, temperature=temperature)
-
