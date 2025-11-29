@@ -43,12 +43,14 @@ class WhatsAppClient {
    */
   async sendTextMessage(to: string, text: string): Promise<void> {
     try {
+      console.log(`📤 Attempting to send message to: ${to}`);
       const message = new TextMessage({ text });
-      await this.client.message.send({
+      const response = await this.client.message.send({
         message,
         phoneNumber: to,
       });
       console.log("✅ Message sent successfully via Wapi.js");
+      console.log("📋 API Response:", JSON.stringify(response, null, 2));
     } catch (error) {
       console.error("❌ Failed to send WhatsApp message:", error);
       throw error;
@@ -64,6 +66,7 @@ class WhatsAppClient {
     buttons: InteractiveButton[]
   ): Promise<void> {
     try {
+      console.log(`📤 Attempting to send buttons to: ${to}`);
       const message = new ButtonInteractionMessage({
         bodyText,
         buttons: buttons.slice(0, 3).map((btn) => ({
@@ -71,11 +74,12 @@ class WhatsAppClient {
           title: btn.title,
         })),
       });
-      await this.client.message.send({
+      const response = await this.client.message.send({
         message,
         phoneNumber: to,
       });
       console.log("✅ Buttons sent successfully via Wapi.js");
+      console.log("📋 API Response:", JSON.stringify(response, null, 2));
     } catch (error) {
       console.error("❌ Failed to send buttons:", error);
       throw error;
