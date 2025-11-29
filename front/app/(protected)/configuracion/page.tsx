@@ -26,9 +26,9 @@ export default function Configuracion() {
       </header>
 
       {/* Content */}
-      <main className="p-8 space-y-6 max-w-4xl">
+      <main className="p-8 space-y-12 max-w-4xl">
         {/* Perfil */}
-        <Card>
+        <Card className="border-none shadow-none bg-transparent">
           <CardHeader>
             <div className="flex items-center gap-2">
               <User className="h-5 w-5 text-primary" />
@@ -75,7 +75,7 @@ export default function Configuracion() {
         </Card>
 
         {/* Seguridad */}
-        <Card>
+        <Card className="border-none shadow-none bg-transparent">
           <CardHeader>
             <div className="flex items-center gap-2">
               <Lock className="h-5 w-5 text-primary" />
@@ -103,7 +103,7 @@ export default function Configuracion() {
         </Card>
 
         {/* Notificaciones */}
-        <Card>
+        <Card className="border-none shadow-none bg-transparent">
           <CardHeader>
             <div className="flex items-center gap-2">
               <Bell className="h-5 w-5 text-primary" />
@@ -157,7 +157,7 @@ export default function Configuracion() {
         </Card>
 
         {/* Preferencias */}
-        <Card>
+        <Card className="border-none shadow-none bg-transparent">
           <CardHeader>
             <div className="flex items-center gap-2">
               <Globe className="h-5 w-5 text-primary" />
