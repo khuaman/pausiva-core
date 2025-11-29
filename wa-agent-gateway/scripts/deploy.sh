@@ -16,22 +16,6 @@ cd "$PROJECT_ROOT"
 echo -e "${GREEN}🚀 WhatsApp Service - Deploy Script${NC}"
 echo "====================================="
 
-# Check if .env file exists
-if [ ! -f ".env" ]; then
-    echo -e "${RED}❌ Error: .env file not found!${NC}"
-    echo "Create one from the example: cp .env.example .env"
-    exit 1
-fi
-
-# Check if Docker is running
-if ! docker info > /dev/null 2>&1; then
-    echo -e "${RED}❌ Error: Docker is not running!${NC}"
-    exit 1
-fi
-
-echo -e "${YELLOW}📦 Pulling latest changes...${NC}"
-git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || echo "Skipping git pull"
-
 echo -e "${YELLOW}🔨 Building containers...${NC}"
 docker compose -f docker-compose.prod.yml build --no-cache
 
