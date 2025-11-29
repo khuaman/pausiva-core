@@ -13,11 +13,17 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+supabase = [
+    "supabase>=2.0.0",
+]
 dev = [
     "pytest>=7.0.0",
+    "supabase>=2.0.0",
+]
+all = [
+    "supabase>=2.0.0",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["pausiva_agent*"]
-

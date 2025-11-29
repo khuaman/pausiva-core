@@ -413,6 +413,8 @@ Mensaje WhatsApp
 
 ## Almacenamiento de Datos
 
+### Modo JSON (desarrollo/testing)
+
 Los datos se guardan en archivos JSON en `data/`, organizados por número de teléfono:
 
 ```
@@ -424,11 +426,25 @@ data/
 └── symptoms/56912345678.json      # Historial de síntomas
 ```
 
+### Modo Supabase (producción)
+
+Los datos se persisten en PostgreSQL con el siguiente esquema:
+
+| Tabla | Descripción |
+|-------|-------------|
+| `users` | Usuarios del sistema (auth) |
+| `patients` | Perfiles de pacientes con `clinical_profile_json` |
+| `doctors` | Doctores y especialistas |
+| `appointments` | Citas médicas |
+| `followings` | Interacciones y síntomas |
+| `patient_timeline_events` | Timeline de eventos |
+| `plans` | Planes de tratamiento |
+
 ### Ventana de contexto
 
 - Máximo **20 mensajes** en memoria activa
 - Estimación de ~**8000 tokens** por conversación
-- Los datos antiguos se mantienen en disco
+- Los datos antiguos se mantienen en el backend (JSON o Supabase)
 
 ---
 
@@ -527,9 +543,179 @@ class BaseAgent:
 
 ## Variables de Entorno
 
-| Variable | Descripción | Requerida |
-|----------|-------------|-----------|
-| `GOOGLE_API_KEY` | API Key de Google AI Studio | Sí |
+| Variable | Descripción | Requerida | Ejemplo |
+|----------|-------------|-----------|---------|
+| `GOOGLE_API_KEY` | API Key de Google AI Studio | Sí | `AIza...` |
+| `SUPABASE_URL` | URL del proyecto Supabase | No* | `https://xxx.supabase.co` |
+| `SUPABASE_SERVICE_KEY` | Service Role Key de Supabase | No* | `eyJ...` |
+
+*Supabase es opcional. Si no está configurado, se usa almacenamiento JSON local.
+
+### Archivo `.env` de ejemplo
+
+```bash
+# API de IA (requerida)
+GOOGLE_API_KEY=tu_api_key_de_google_ai_studio
+
+# Supabase (opcional - para producción)
+SUPABASE_URL=https://tu-proyecto.supabase.co
+SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# Configuración del servidor (opcional)
+PORT=8080
+DEBUG=false
+```
+
+---
+
+## Integración con Supabase
+
+El sistema soporta almacenamiento en Supabase para persistencia de datos en producción.
+
+### Configuración
+
+1. Crea un proyecto en [Supabase](https://supabase.com)
+2. Ejecuta las migraciones del schema (ver `dashboard/DATABASE_SCHEMA_SUPABASE.md`)
+3. Configura las variables de entorno:
+
+```bash
+# En .env
+SUPABASE_URL=https://tu-proyecto.supabase.co
+SUPABASE_SERVICE_KEY=tu_service_key
+```
+
+### Arquitectura de almacenamiento
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    StorageManager                           │
+│  (Fachada que abstrae el almacenamiento)                   │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+          ┌───────────────┴───────────────┐
+          │                               │
+          ▼                               ▼
+┌─────────────────────┐       ┌─────────────────────┐
+│  SupabaseStorage    │       │  JSONStorageManager │
+│  (Producción)       │       │  (Desarrollo/Test)  │
+└─────────┬───────────┘       └─────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Repositories                             │
+│  ┌─────────────┐ ┌──────────────┐ ┌────────────────────┐   │
+│  │PatientRepo  │ │FollowingRepo│ │ AppointmentRepo    │   │
+│  └─────────────┘ └──────────────┘ └────────────────────┘   │
+│  ┌─────────────┐ ┌──────────────┐                          │
+│  │TimelineRepo │ │  PlanRepo    │                          │
+│  └─────────────┘ └──────────────┘                          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Mapeo de datos
+
+| Pausiva | Supabase Table | Campos/Uso |
+|---------|----------------|------------|
+| `Patient` | `users` + `patients` | Perfil, `clinical_profile_json` |
+| `Medication` | `patients.clinical_profile_json` | Array de medicamentos en JSONB |
+| `Appointment` | `appointments` | Con `doctor_id` referenciando `doctors` |
+| `Symptom` | `followings` | `type='symptoms'`, `severity_score` |
+| `RiskAlert` | `followings` | `is_urgent=true` cuando riesgo alto |
+| `Timeline` | `patient_timeline_events` | Historial de eventos |
+
+### Repositorios disponibles
+
+```python
+from pausiva_agent.database import (
+    PatientRepository,
+    FollowingRepository,
+    AppointmentRepository,
+    TimelineRepository,
+    PlanRepository
+)
+
+# Ejemplo: obtener paciente por teléfono
+patient_repo = PatientRepository()
+patient = patient_repo.get_by_phone("+56912345678")
+
+# Ejemplo: registrar síntoma
+following_repo = FollowingRepository()
+following_repo.create_symptom_entry(
+    patient_id=patient.id,
+    notes="Dolor de cabeza y mareos",
+    severity_score=35,
+    is_urgent=False
+)
+
+# Ejemplo: obtener citas próximas
+apt_repo = AppointmentRepository()
+appointments = apt_repo.get_upcoming_by_patient(patient.id)
+```
+
+### Contexto enriquecido
+
+Con Supabase, los agentes reciben contexto completo de la paciente:
+
+```
+[CONTEXTO DE LA PACIENTE]:
+
+== INFORMACIÓN DEL PACIENTE ==
+Nombre: María García
+Teléfono: +56912345678
+Perfil: Edad: 52 años; Etapa: Peri-menopausia
+Nivel de riesgo actual: low (score: 25)
+
+== PERFIL CLÍNICO ==
+Condiciones: Hipertensión, Diabetes tipo 2
+Alergias: Penicilina
+Notas: En tratamiento hormonal desde 2024
+
+== MEDICACIÓN ACTIVA ==
+- Metformina 850mg: 2 veces al día (08:00, 20:00)
+- Enalapril 10mg: 1 vez al día (08:00)
+
+== CITAS PRÓXIMAS ==
+- 2025-12-15 10:00: Dra. María López (Ginecología) - Control de rutina
+- 2025-12-20 15:30: Dr. Juan Pérez (Cardiología) - Seguimiento
+
+== SÍNTOMAS RECIENTES ==
+- Cansancio y bochornos (riesgo: low, score: 35)
+- Dolor de cabeza leve (riesgo: low, score: 20)
+
+== HISTORIAL DE INTERACCIONES ==
+- [symptoms] Reportó cansancio y mareos (hace 2 días)
+- [appointment] Confirmó cita con ginecología (hace 5 días)
+```
+
+### Verificar modo de almacenamiento
+
+```python
+from pausiva_agent.memory import StorageManager
+
+storage = StorageManager()
+
+# Verificar qué backend está activo
+if storage.using_supabase:
+    print("Usando Supabase")
+else:
+    print("Usando JSON local")
+```
+
+### Fallback automático
+
+El sistema detecta automáticamente el modo de almacenamiento:
+
+1. Si `SUPABASE_URL` y `SUPABASE_SERVICE_KEY` están configurados → **Supabase**
+2. Si faltan credenciales → **JSON local** en `data/`
+
+```python
+# El código es idéntico independiente del backend
+from pausiva_agent import PausivaOrchestrator
+
+pausiva = PausivaOrchestrator(storage_path="data")
+response = pausiva.process_message("+56912345678", "Hola")
+# Funciona igual con Supabase o JSON
+```
 
 ---
 

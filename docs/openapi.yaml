@@ -10,11 +10,28 @@ info:
     - Gestión de medicación basada en recetas
     - Gestión de citas médicas
     - Check-in proactivo diario
+    - **Integración con Supabase** para persistencia de datos
+    
+    ## Almacenamiento
+    El sistema soporta dos modos de almacenamiento:
+    
+    | Modo | Cuándo se usa | Descripción |
+    |------|---------------|-------------|
+    | **Supabase** | Variables `SUPABASE_URL` y `SUPABASE_SERVICE_KEY` configuradas | Persistencia en PostgreSQL |
+    | **JSON local** | Sin credenciales de Supabase | Archivos en `data/` |
+    
+    ## Integración con Supabase
+    Cuando Supabase está configurado, el sistema:
+    - Guarda pacientes en tablas `users` + `patients`
+    - Registra síntomas en tabla `followings` (type='symptoms')
+    - Lee citas desde tabla `appointments`
+    - Almacena medicación en `patients.clinical_profile_json`
+    - Registra eventos en `patient_timeline_events`
     
     ## Importante
     Pausiva NO es médico, NO diagnostica, NO prescribe medicación. Solo entrega recomendaciones 
     generales de autocuidado y sugiere consultar profesionales de salud cuando corresponde.
-  version: 1.0.0
+  version: 1.1.0
   contact:
     name: Pausiva Team
   license:
@@ -23,6 +40,8 @@ info:
 servers:
   - url: http://localhost:8080
     description: Servidor de desarrollo local
+  - url: https://api.pausiva.com
+    description: Servidor de producción (ejemplo)
 
 tags:
   - name: Messages
@@ -248,6 +267,8 @@ paths:
         - Medicación
         - Citas
         - Historial de síntomas
+        
+        **Nota:** En modo Supabase, también elimina registros en las tablas relacionadas.
       operationId: deletePatient
       parameters:
         - name: phone
@@ -270,17 +291,55 @@ paths:
                     example: ok
                   deleted_files:
                     type: array
+                    description: Archivos eliminados (modo JSON) o vacío (modo Supabase)
                     items:
                       type: string
                     example:
                       - "/data/patients/56912345678.json"
                       - "/data/conversations/56912345678.json"
+                  storage_mode:
+                    type: string
+                    enum: [json, supabase]
+                    description: Modo de almacenamiento utilizado
+                    example: "json"
         '500':
           description: Error interno
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  /storage/status:
+    get:
+      tags:
+        - Health
+      summary: Estado del almacenamiento
+      description: |
+        Obtiene información sobre el modo de almacenamiento actual.
+        
+        Útil para verificar si Supabase está correctamente configurado.
+      operationId: getStorageStatus
+      responses:
+        '200':
+          description: Estado del almacenamiento
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mode:
+                    type: string
+                    enum: [supabase, json]
+                    description: Modo de almacenamiento activo
+                    example: "supabase"
+                  supabase_configured:
+                    type: boolean
+                    description: Si las credenciales de Supabase están configuradas
+                    example: true
+                  supabase_url:
+                    type: string
+                    description: URL de Supabase (parcialmente oculta)
+                    example: "https://xxx...xxx.supabase.co"
 
 components:
   schemas:
@@ -433,6 +492,8 @@ components:
 
     PatientContext:
       type: object
+      description: |
+        Contexto completo de una paciente. Incluye datos adicionales cuando Supabase está habilitado.
       properties:
         patient:
           type: object
@@ -440,60 +501,179 @@ components:
             name:
               type: string
               nullable: true
-              example: null
+              example: "María García"
             phone:
               type: string
               example: "+56912345678"
             profile:
               type: object
+              description: Perfil médico y personal
               properties:
                 age:
                   type: integer
                   nullable: true
+                  example: 52
                 medical_conditions:
                   type: array
                   items:
                     type: string
+                  example: ["Hipertensión", "Diabetes tipo 2"]
                 allergies:
                   type: array
                   items:
                     type: string
+                  example: ["Penicilina"]
                 current_medications:
                   type: array
                   items:
                     type: string
+                  example: ["Metformina 850mg"]
                 notes:
                   type: string
+                  example: "Peri-menopausia desde 2023"
             current_risk_level:
               type: string
               enum: [none, low, medium, high]
+              example: "low"
             current_risk_score:
               type: integer
+              minimum: 0
+              maximum: 100
+              example: 25
         active_medications:
           type: array
+          description: Lista de medicamentos activos
           items:
-            type: object
+            $ref: '#/components/schemas/MedicationDetail'
         upcoming_appointments:
           type: array
+          description: Citas médicas próximas
           items:
-            type: object
+            $ref: '#/components/schemas/AppointmentDetail'
         recent_symptoms:
           type: array
+          description: Historial de síntomas recientes (últimos 5)
           items:
             type: object
             properties:
               summary:
                 type: string
+                example: "Cansancio y bochornos frecuentes"
               risk_level:
                 type: string
+                enum: [none, low, medium, high]
+                example: "low"
               risk_score:
                 type: integer
+                example: 35
               timestamp:
                 type: string
                 format: date-time
+                example: "2025-11-29T15:25:35.616529"
         conversation_summary:
           type: string
           description: Resumen de la conversación reciente
+          example: "Asistente: Hola, bienvenida a Pausiva...\nPaciente: Me siento cansada..."
+        supabase_data:
+          type: object
+          description: Datos adicionales de Supabase (solo cuando está habilitado)
+          nullable: true
+          properties:
+            doctors:
+              type: array
+              description: Doctores asignados a la paciente
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    example: "Dra. María López"
+                  specialty:
+                    type: string
+                    example: "Ginecología"
+            timeline_events:
+              type: array
+              description: Eventos recientes del timeline
+              items:
+                type: object
+                properties:
+                  event_type:
+                    type: string
+                    example: "symptom_reported"
+                  description:
+                    type: string
+                    example: "Reportó cansancio y bochornos"
+                  created_at:
+                    type: string
+                    format: date-time
+    
+    MedicationDetail:
+      type: object
+      description: Detalle de un medicamento activo
+      properties:
+        name:
+          type: string
+          example: "Metformina"
+        raw_text:
+          type: string
+          example: "Metformina 850mg, 1 tableta con el desayuno y 1 con la cena"
+        frequency_text:
+          type: string
+          example: "2 veces al día"
+        times_of_day:
+          type: array
+          items:
+            type: string
+          example: ["08:00", "20:00"]
+        duration_days:
+          type: integer
+          nullable: true
+          example: 30
+        is_active:
+          type: boolean
+          example: true
+        start_date:
+          type: string
+          format: date
+          nullable: true
+          example: "2025-11-01"
+        end_date:
+          type: string
+          format: date
+          nullable: true
+          example: "2025-12-01"
+        notes:
+          type: string
+          example: "Tomar con alimentos"
+    
+    AppointmentDetail:
+      type: object
+      description: Detalle de una cita médica
+      properties:
+        appointment_id:
+          type: string
+          example: "apt_123abc"
+        date:
+          type: string
+          format: date
+          example: "2025-12-15"
+        time:
+          type: string
+          example: "10:00"
+        specialist_type:
+          type: string
+          example: "Ginecología"
+        doctor_name:
+          type: string
+          nullable: true
+          example: "Dra. María López"
+        status:
+          type: string
+          enum: [pending, confirmed, completed, cancelled]
+          example: "pending"
+        notes:
+          type: string
+          example: "Control de rutina"
 
     Error:
       type: object

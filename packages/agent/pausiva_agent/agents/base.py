@@ -17,16 +17,15 @@ from ..memory.patient_context import PatientContext
 
 def load_env():
     """Carga variables de entorno desde .env en la raíz del monorepo."""
-    # Buscar .env en varios niveles hacia arriba
     current = Path(__file__).parent
-    for _ in range(6):  # Buscar hasta 6 niveles arriba
+    for _ in range(6):
         env_path = current / ".env"
         if env_path.exists():
             with open(env_path) as f:
                 for line in f:
                     if "=" in line and not line.startswith("#"):
                         key, value = line.strip().split("=", 1)
-                        os.environ[key] = value
+                        os.environ.setdefault(key, value)
             return
         current = current.parent
 
@@ -38,6 +37,8 @@ class BaseAgent(ABC):
     """
     Clase base para todos los agentes de Pausiva.
     Proporciona funcionalidad común para interactuar con Gemini.
+    
+    Con Supabase integrado, incluye contexto enriquecido de la paciente.
     """
     
     def __init__(
@@ -54,9 +55,95 @@ class BaseAgent(ABC):
         self.client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
     
     def _build_context_message(self, context: PatientContext) -> str:
-        """Construye el mensaje de contexto para el modelo."""
-        context_data = context.get_context_summary()
-        return f"[CONTEXTO DE LA PACIENTE]:\n{json.dumps(context_data, ensure_ascii=False, indent=2)}"
+        """
+        Construye el mensaje de contexto para el modelo.
+        Incluye datos extendidos de Supabase si están disponibles.
+        """
+        # Get extended context if available
+        context_data = context.get_extended_context()
+        
+        # Build a structured context message
+        parts = ["[CONTEXTO DE LA PACIENTE]:"]
+        
+        # Patient basic info
+        patient = context_data.get("patient", {})
+        if patient:
+            parts.append("\n== INFORMACIÓN DEL PACIENTE ==")
+            if patient.get("name"):
+                parts.append(f"Nombre: {patient['name']}")
+            parts.append(f"Teléfono: {patient.get('phone', context.phone_number)}")
+            
+            # Profile summary
+            if context.patient and hasattr(context.patient, 'get_profile_summary'):
+                try:
+                    profile_summary = context.patient.get_profile_summary()
+                    if profile_summary and profile_summary != "Sin información de perfil":
+                        parts.append(f"Perfil: {profile_summary}")
+                except Exception:
+                    pass
+            
+            # Clinical history from Supabase
+            clinical = patient.get("clinical_history", {})
+            if clinical:
+                if clinical.get("medical_conditions"):
+                    parts.append(f"Condiciones médicas: {', '.join(clinical['medical_conditions'])}")
+                if clinical.get("allergies"):
+                    parts.append(f"Alergias: {', '.join(clinical['allergies'])}")
+                if clinical.get("menopause_stage"):
+                    parts.append(f"Etapa menopausia: {clinical['menopause_stage']}")
+            
+            # Current risk
+            if patient.get("current_risk_level") and patient["current_risk_level"] != "none":
+                parts.append(f"Nivel de riesgo actual: {patient['current_risk_level']} (score: {patient.get('current_risk_score', 0)})")
+        
+        # Active medications
+        medications = context_data.get("active_medications", [])
+        if medications:
+            parts.append("\n== MEDICACIÓN ACTIVA ==")
+            for med in medications[:5]:  # Limit to 5
+                if isinstance(med, dict):
+                    med_name = med.get("name") or med.get("medicine_name", "Sin nombre")
+                    freq = med.get("frequency_text", "")
+                    parts.append(f"- {med_name}: {freq}")
+        
+        # Upcoming appointments
+        appointments = context_data.get("upcoming_appointments", [])
+        if appointments:
+            parts.append("\n== CITAS PRÓXIMAS ==")
+            for apt in appointments[:3]:  # Limit to 3
+                if isinstance(apt, dict):
+                    date = apt.get("date") or apt.get("scheduled_at", "")[:10]
+                    time = apt.get("time", "")
+                    doctor = apt.get("doctor_name") or apt.get("specialist_type", "")
+                    parts.append(f"- {date} {time}: {doctor}")
+        
+        # Recent symptoms
+        symptoms = context_data.get("recent_symptoms", [])
+        if symptoms:
+            parts.append("\n== SÍNTOMAS RECIENTES ==")
+            for sym in symptoms[:5]:
+                if isinstance(sym, dict):
+                    summary = sym.get("summary", "")[:100]
+                    risk = sym.get("risk_level", "none")
+                    parts.append(f"- {summary} (riesgo: {risk})")
+        
+        # Recent interactions (from Supabase)
+        interactions = context_data.get("interaction_history", [])
+        if interactions:
+            parts.append("\n== INTERACCIONES RECIENTES ==")
+            for inter in interactions[:3]:
+                if isinstance(inter, dict):
+                    inter_type = inter.get("type", "")
+                    summary = inter.get("summary", "")[:80]
+                    parts.append(f"- [{inter_type}] {summary}")
+        
+        # Conversation summary
+        conv_summary = context_data.get("conversation_summary", "")
+        if conv_summary and conv_summary != "Sin conversaciones previas.":
+            parts.append("\n== CONVERSACIÓN RECIENTE ==")
+            parts.append(conv_summary[:500])
+        
+        return "\n".join(parts)
     
     def _parse_response(self, response_text: str) -> AgentResponse:
         """Parsea la respuesta del modelo a AgentResponse."""
@@ -105,11 +192,12 @@ class BaseAgent(ABC):
     ) -> AgentResponse:
         """
         Procesamiento por defecto que pueden usar los agentes.
+        Incluye contexto enriquecido de Supabase.
         """
         # Construir mensajes para el modelo
         messages = context.conversation.get_context_for_model()
         
-        # Agregar contexto de la paciente
+        # Agregar contexto de la paciente (ahora con datos de Supabase)
         context_message = self._build_context_message(context)
         
         # Agregar el mensaje actual con contexto

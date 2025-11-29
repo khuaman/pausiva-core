@@ -10,6 +10,7 @@ Endpoints:
     POST /checkin         - Check-in proactivo
     GET  /context/<phone> - Ver contexto
     DELETE /patient/<phone> - Reset paciente
+    GET  /storage/status  - Estado del almacenamiento
     GET  /health          - Health check
     GET  /docs            - Swagger UI
     GET  /openapi.yaml    - Especificación OpenAPI
@@ -155,7 +156,33 @@ class PausivaHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": str(e)}, 500)
             return
         
+        # GET /storage/status
+        if parsed.path == "/storage/status":
+            self._send_json(self._get_storage_status())
+            return
+        
         self._send_json({"error": "Not found"}, 404)
+    
+    def _get_storage_status(self) -> dict:
+        """Retorna el estado del almacenamiento."""
+        import os
+        supabase_url = os.environ.get("SUPABASE_URL", "")
+        supabase_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+        
+        is_configured = bool(supabase_url and supabase_key)
+        
+        # Ocultar parcialmente la URL si existe
+        masked_url = ""
+        if supabase_url:
+            parts = supabase_url.split(".")
+            if len(parts) >= 2:
+                masked_url = f"{parts[0][:12]}...{parts[-1]}"
+        
+        return {
+            "mode": "supabase" if is_configured else "json",
+            "supabase_configured": is_configured,
+            "supabase_url": masked_url if masked_url else None
+        }
     
     def do_POST(self):
         """Handle POST requests."""
@@ -255,6 +282,7 @@ def run_server(port: int = 8080):
 ║    POST   /checkin         - Check-in proactivo              ║
 ║    GET    /context/<phone> - Ver contexto de paciente        ║
 ║    DELETE /patient/<phone> - Eliminar datos (testing)        ║
+║    GET    /storage/status  - Estado del almacenamiento       ║
 ║    GET    /health          - Health check                    ║
 ║    GET    /docs            - Documentación Swagger           ║
 ╠══════════════════════════════════════════════════════════════╣
