@@ -378,6 +378,35 @@ Audit log tracking staff actions for compliance and monitoring. Logs user manage
 
 ---
 
+### 2.14 `patient_doctors`
+
+Join table to model an explicit **many-to-many** relationship between patients and doctors (e.g. assigned care team, historical relationships).
+
+| Column              | Type         | Nullable | Default      | Constraints / Notes                                                                 |
+|---------------------|--------------|----------|--------------|-------------------------------------------------------------------------------------|
+| `id`                | `uuid`       | NO       | random uuid  | **PK**.                                                                             |
+| `patient_id`        | `uuid`       | NO       | —            | **FK → `patients.id`**.                                                             |
+| `doctor_id`         | `uuid`       | NO       | —            | **FK → `doctors.id`**.                                                              |
+| `is_primary`        | `boolean`    | NO       | `false`      | Marks this doctor as primary for the patient (at most one active per patient/doctor). |
+| `relationship_notes`| `text`       | YES      | —            | Optional notes about the care relationship (e.g. "PCP", "Second opinion").         |
+| `started_at`        | `timestamptz`| YES      | `now()`      | When this doctor–patient relationship started.                                      |
+| `ended_at`          | `timestamptz`| YES      | —            | When this relationship ended (null if ongoing).                                     |
+| `created_at`        | `timestamptz`| NO       | `now()`      | Creation timestamp.                                                                 |
+| `updated_at`        | `timestamptz`| NO       | `now()`      | Last update timestamp.                                                              |
+
+**Indexes / Constraints**
+- PK: `id`
+- FK: `patient_id` → `patients.id` (on delete cascade)
+- FK: `doctor_id` → `doctors.id` (on delete cascade)
+- CHECK: `ended_at IS NULL OR ended_at > started_at`
+- Indexes:
+  - `patient_id`
+  - `doctor_id`
+  - `(patient_id, doctor_id)`
+  - Partial UNIQUE index on `(patient_id, doctor_id)` where `ended_at IS NULL` (only one active link)
+
+---
+
 ## 3. Summary of Relationships
 
 - `auth.users` 1 — 1 `users`
@@ -395,6 +424,7 @@ Audit log tracking staff actions for compliance and monitoring. Logs user manage
 - `memberships` 1 — N `membership_payments`
 - `staff` 1 — N `staff_activity_log`
 - `staff` 1 — N `membership_payments` (as processor)
+- `patients` N — N `doctors` (via `patient_doctors`)
 
 This spec is the **authoritative source** for creating Supabase migrations via the CLI. Use the column names, types, constraints, and enums exactly as defined here when writing the SQL in your migration files.
 
