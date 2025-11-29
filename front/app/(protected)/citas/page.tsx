@@ -1,213 +1,191 @@
 "use client";
 
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockPatients } from '@/data/mockData';
-import { Calendar, Clock, Plus, Video, Building, MapPin, AlertCircle } from 'lucide-react';
-import { format, isAfter, isBefore } from 'date-fns';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Calendar, Clock, AlertCircle } from 'lucide-react';
+import { format, isAfter, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { toast } from '@/hooks/use-toast';
+import { useAppointments } from '@/hooks/use-appointments';
+import type {
+  ApiAppointmentDetail,
+  ApiAppointmentSummary,
+} from '@/app/api/appointments/types';
+import type { AppointmentStatus } from '@/utils/types/appointments';
 
 export default function Citas() {
   const router = useRouter();
   const today = new Date();
-  const [showNewAppointmentModal, setShowNewAppointmentModal] = useState(false);
-  const [formData, setFormData] = useState({
-    patientId: '',
-    date: '',
-    time: '',
-    type: '',
-    locationType: 'virtual' as 'virtual' | 'presencial',
-    location: '',
-    doctor: '',
-    notes: ''
-  });
+  const { appointments, loading, error } = useAppointments({ limit: 100 });
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [selectedAppointmentDetail, setSelectedAppointmentDetail] = useState<ApiAppointmentDetail | null>(null);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
 
-  // Recopilar todas las citas
-  const allAppointments = mockPatients.flatMap((patient) =>
-    patient.appointments.map((apt) => ({
-      ...apt,
-      patient,
-    }))
-  );
-
-  // Filtrar citas
-  const upcomingAppointments = allAppointments
-    .filter((apt) => isAfter(new Date(apt.date), today) || apt.date === today.toISOString().split('T')[0])
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-  const pastAppointments = allAppointments
-    .filter((apt) => isBefore(new Date(apt.date), today) && apt.date !== today.toISOString().split('T')[0])
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-  const todayAppointments = allAppointments.filter(
-    (apt) => apt.date === today.toISOString().split('T')[0]
-  );
-
-  const handleSubmitAppointment = () => {
-    if (!formData.patientId || !formData.date || !formData.time || !formData.type || !formData.doctor) {
-      toast({
-        title: "Campos requeridos",
-        description: "Por favor completa todos los campos obligatorios",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Aquí se guardaría la cita en la base de datos
-    console.log('Nueva cita:', formData);
-    
-    toast({
-      title: "Cita agendada exitosamente",
-      description: `Cita programada para ${format(new Date(formData.date), "d 'de' MMMM", { locale: es })} a las ${formData.time}`,
-    });
-
-    setShowNewAppointmentModal(false);
-    setFormData({
-      patientId: '',
-      date: '',
-      time: '',
-      type: '',
-      locationType: 'virtual',
-      location: '',
-      doctor: '',
-      notes: ''
-    });
+  const statusClassMap: Record<AppointmentStatus, string> = {
+    scheduled: 'bg-warning/10 text-warning border-warning/20',
+    rescheduled: 'bg-warning/10 text-warning border-warning/20',
+    completed: 'bg-success/10 text-success border-success/20',
+    cancelled: 'bg-destructive/10 text-destructive border-destructive/20',
+    no_show: 'bg-muted text-muted-foreground border-border',
   };
 
-  const doctors = [
-    'Dra. María González',
-    'Lic. Ana Torres',
-    'Psic. Laura Ramírez'
-  ];
+  const { todayAppointments, upcomingAppointments, pastAppointments } = useMemo(() => {
+    const now = new Date();
+    const todays: ApiAppointmentSummary[] = [];
+    const upcoming: ApiAppointmentSummary[] = [];
+    const past: ApiAppointmentSummary[] = [];
 
-  const appointmentTypes = [
-    'Consulta Virtual Ginecológica',
-    'Consulta Nutricional',
-    'Consulta Psicológica',
-    'Consulta de seguimiento',
-    'Primera consulta'
-  ];
+    appointments.forEach((appointment) => {
+      const scheduledAt = new Date(appointment.scheduledAt);
+      if (isSameDay(scheduledAt, now)) {
+        todays.push(appointment);
+      } else if (isAfter(scheduledAt, now)) {
+        upcoming.push(appointment);
+      } else {
+        past.push(appointment);
+      }
+    });
 
-  const locations = [
-    'Clínica Pausiva - San Isidro',
-    'Clínica Pausiva - Miraflores',
-    'Videollamada'
-  ];
+    const asc = (a: ApiAppointmentSummary, b: ApiAppointmentSummary) =>
+      new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+    const desc = (a: ApiAppointmentSummary, b: ApiAppointmentSummary) =>
+      new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime();
 
-  const renderAppointmentCard = (apt: any) => (
-    <Card key={apt.id} className="card-hover group shadow-sm">
-      <CardContent className="p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-          {/* Avatar */}
-          <Avatar className="h-14 w-14 sm:h-16 sm:w-16 border-2 border-border flex-shrink-0">
-            <AvatarImage src={apt.patient.avatar} alt={apt.patient.name} />
-            <AvatarFallback className="bg-primary text-primary-foreground text-base sm:text-lg font-semibold">
-              {apt.patient.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
-            </AvatarFallback>
-          </Avatar>
+    return {
+      todayAppointments: todays.sort(asc),
+      upcomingAppointments: upcoming.sort(asc),
+      pastAppointments: past.sort(desc),
+    };
+  }, [appointments]);
 
-          {/* Patient Info */}
-          <div className="flex-1 min-w-0 space-y-3 w-full">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-base sm:text-lg font-serif font-semibold text-foreground">
-                {apt.patient.name}
-              </h3>
-              <Badge
-                variant={apt.status === 'completada' ? 'default' : 'secondary'}
-                className={`text-xs ${
-                  apt.status === 'completada'
-                    ? 'bg-success/10 text-success border-success/20 hover:bg-success/20'
-                    : apt.status === 'pendiente'
-                    ? 'bg-warning/10 text-warning border-warning/20 hover:bg-warning/20'
-                    : 'bg-muted text-muted-foreground'
-                }`}
-              >
-                {apt.status.charAt(0).toUpperCase() + apt.status.slice(1)}
-              </Badge>
-              <Badge variant="outline" className="gap-1.5 text-xs">
-                {apt.locationType === 'virtual' ? (
-                  <>
-                    <Video className="h-3 w-3" />
-                    <span className="hidden sm:inline">Virtual</span>
-                  </>
-                ) : (
-                  <>
-                    <Building className="h-3 w-3" />
-                    <span className="hidden sm:inline">Presencial</span>
-                  </>
-                )}
-              </Badge>
-            </div>
+  const formatAppointmentType = (type: string) =>
+    type.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
-            <p className="text-sm sm:text-base text-muted-foreground font-medium">{apt.type}</p>
+  const handleOpenDetail = useCallback(
+    async (appointmentId: string) => {
+      setDetailDialogOpen(true);
+      if (selectedAppointmentDetail?.id === appointmentId) {
+        return;
+      }
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
-                <span className="font-medium truncate">{format(new Date(apt.date), "d 'de' MMMM", { locale: es })}</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
-                <span className="font-medium">{apt.time}</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground sm:col-span-2">
-                <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
-                <span className="font-medium truncate">{apt.location || 'Ubicación no especificada'}</span>
-              </div>
-            </div>
+      setSelectedAppointmentId(appointmentId);
+      setDetailLoading(true);
+      setDetailError(null);
 
-            <div className="flex items-center gap-2 text-xs sm:text-sm flex-wrap">
-              <span className="text-muted-foreground">Doctor:</span>
-              <span className="font-semibold text-foreground">{apt.doctor}</span>
-            </div>
-
-            {/* Symptoms - if completed */}
-            {apt.symptoms && apt.symptoms.length > 0 && (
-              <div className="pt-2 border-t border-border">
-                <div className="flex items-start gap-2 mb-2">
-                  <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary mt-0.5 flex-shrink-0" />
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sintomatología:</p>
-                </div>
-                <div className="flex flex-wrap gap-2 ml-0 sm:ml-6">
-                  {apt.symptoms.slice(0, 3).map((symptom: string, idx: number) => (
-                    <Badge key={idx} variant="secondary" className="text-xs">
-                      {symptom}
-                    </Badge>
-                  ))}
-                  {apt.symptoms.length > 3 && (
-                    <Badge variant="secondary" className="text-xs">
-                      +{apt.symptoms.length - 3} más
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Action Button */}
-          <Button 
-            size="sm" 
-            variant="outline" 
-            onClick={() => router.push(`/paciente/${apt.patient.id}`)}
-            className="w-full sm:w-auto shrink-0 group-hover:border-primary group-hover:text-primary transition-all"
-          >
-            Ver Paciente
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+      try {
+        const response = await fetch(`/api/appointments/${appointmentId}`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch appointment: ${response.status}`);
+        }
+        const result = await response.json();
+        setSelectedAppointmentDetail(result.data);
+      } catch (err) {
+        setDetailError(err instanceof Error ? err.message : 'Unknown error');
+        setSelectedAppointmentDetail(null);
+      } finally {
+        setDetailLoading(false);
+      }
+    },
+    [selectedAppointmentDetail?.id]
   );
+
+  const handleCloseDetail = () => {
+    setDetailDialogOpen(false);
+    setSelectedAppointmentId(null);
+    setSelectedAppointmentDetail(null);
+    setDetailError(null);
+    setDetailLoading(false);
+  };
+
+  const renderAppointmentCard = (apt: ApiAppointmentSummary) => {
+    const appointmentDate = new Date(apt.scheduledAt);
+    const formattedDate = format(appointmentDate, "d 'de' MMMM", { locale: es });
+    const formattedTime = format(appointmentDate, 'HH:mm');
+    const initials = apt.patient.fullName
+      .split(' ')
+      .map((name) => (name ? name[0] : ''))
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+    const isLoadingDetail = detailLoading && selectedAppointmentId === apt.id;
+
+    return (
+      <Card key={apt.id} className="card-hover group shadow-sm">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+            <Avatar className="h-14 w-14 sm:h-16 sm:w-16 border-2 border-border flex-shrink-0">
+              <AvatarImage src={apt.patient.pictureUrl ?? undefined} alt={apt.patient.fullName} />
+              <AvatarFallback className="bg-primary text-primary-foreground text-base sm:text-lg font-semibold">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+
+            <div className="flex-1 min-w-0 space-y-3 w-full">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base sm:text-lg font-serif font-semibold text-foreground">
+                  {apt.patient.fullName}
+                </h3>
+                <Badge
+                  variant="outline"
+                  className={`text-xs border ${statusClassMap[apt.status] ?? 'bg-muted text-muted-foreground border-border'}`}
+                >
+                  {apt.status.replace('_', ' ').toUpperCase()}
+                </Badge>
+              </div>
+
+              <p className="text-sm sm:text-base text-muted-foreground font-medium">
+                {formatAppointmentType(apt.type)}
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                  <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
+                  <span className="font-medium truncate">{formattedDate}</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
+                  <span className="font-medium">{formattedTime}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs sm:text-sm flex-wrap">
+                <span className="text-muted-foreground">Profesional:</span>
+                <span className="font-semibold text-foreground">{apt.doctor.fullName}</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleOpenDetail(apt.id)}
+                disabled={isLoadingDetail}
+                className="w-full sm:w-auto shrink-0"
+              >
+                {isLoadingDetail ? 'Cargando...' : 'Ver Detalles'}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => router.push(`/paciente/${apt.patient.id}`)}
+                className="w-full sm:w-auto shrink-0"
+              >
+                Ver Paciente
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="flex-1 overflow-auto">
@@ -222,216 +200,87 @@ export default function Citas() {
               {format(today, "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
             </p>
           </div>
-          <Button 
-            size="lg" 
-            className="shadow-lg w-full sm:w-auto"
-            onClick={() => setShowNewAppointmentModal(true)}
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            Nueva Cita
-          </Button>
         </div>
       </header>
 
-      {/* Modal de Nueva Cita */}
-      <Dialog open={showNewAppointmentModal} onOpenChange={setShowNewAppointmentModal}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <Dialog
+        open={detailDialogOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setDetailDialogOpen(true);
+          } else {
+            handleCloseDetail();
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
-            <DialogTitle className="text-xl font-semibold">Agendar Nueva Cita</DialogTitle>
-            <DialogDescription>
-              Completa los datos para agendar una nueva cita médica
-            </DialogDescription>
+            <DialogTitle className="text-xl font-semibold">Detalle de la cita</DialogTitle>
           </DialogHeader>
-          
-          <div className="grid gap-6 py-4">
-            {/* Paciente */}
-            <div className="grid gap-2">
-              <Label htmlFor="patient" className="text-sm font-semibold">
-                Paciente <span className="text-destructive">*</span>
-              </Label>
-              <Select value={formData.patientId} onValueChange={(value) => setFormData({...formData, patientId: value})}>
-                <SelectTrigger id="patient">
-                  <SelectValue placeholder="Seleccionar paciente" />
-                </SelectTrigger>
-                <SelectContent>
-                  {mockPatients.map((patient) => (
-                    <SelectItem key={patient.id} value={patient.id}>
-                      {patient.name} - {patient.age} años
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
-            {/* Fecha y Hora */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="date" className="text-sm font-semibold">
-                  Fecha <span className="text-destructive">*</span>
-                </Label>
-                <Input 
-                  id="date" 
-                  type="date" 
-                  value={formData.date}
-                  onChange={(e) => setFormData({...formData, date: e.target.value})}
-                />
+          {detailLoading ? (
+            <div className="py-6 text-center text-muted-foreground">Cargando información...</div>
+          ) : detailError ? (
+            <div className="py-4 text-sm text-destructive">{detailError}</div>
+          ) : selectedAppointmentDetail ? (
+            <div className="space-y-5">
+              <div className="flex flex-col gap-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Estado</p>
+                <Badge
+                  variant="outline"
+                  className={`w-fit text-xs border ${statusClassMap[selectedAppointmentDetail.status] ?? 'bg-muted text-muted-foreground border-border'}`}
+                >
+                  {selectedAppointmentDetail.status.replace('_', ' ').toUpperCase()}
+                </Badge>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="time" className="text-sm font-semibold">
-                  Hora <span className="text-destructive">*</span>
-                </Label>
-                <Input 
-                  id="time" 
-                  type="time" 
-                  value={formData.time}
-                  onChange={(e) => setFormData({...formData, time: e.target.value})}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Paciente</p>
+                  <p className="font-semibold text-foreground">{selectedAppointmentDetail.patient.profile.fullName}</p>
+                  <p className="text-sm text-muted-foreground">{selectedAppointmentDetail.patient.profile.email}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Profesional</p>
+                  <p className="font-semibold text-foreground">{selectedAppointmentDetail.doctor.profile.fullName}</p>
+                  <p className="text-sm text-muted-foreground">{selectedAppointmentDetail.doctor.metadata.specialty}</p>
+                </div>
               </div>
-            </div>
-
-            {/* Tipo de Consulta */}
-            <div className="grid gap-2">
-              <Label htmlFor="type" className="text-sm font-semibold">
-                Tipo de Consulta <span className="text-destructive">*</span>
-              </Label>
-              <Select value={formData.type} onValueChange={(value) => setFormData({...formData, type: value})}>
-                <SelectTrigger id="type">
-                  <SelectValue placeholder="Seleccionar tipo de consulta" />
-                </SelectTrigger>
-                <SelectContent>
-                  {appointmentTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Tipo de Atención */}
-            <div className="grid gap-2">
-              <Label className="text-sm font-semibold">
-                Tipo de Atención <span className="text-destructive">*</span>
-              </Label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="locationType"
-                    value="virtual"
-                    checked={formData.locationType === 'virtual'}
-                    onChange={(e) => setFormData({
-                      ...formData, 
-                      locationType: e.target.value as 'virtual' | 'presencial',
-                      location: e.target.value === 'virtual' ? 'Videollamada' : ''
-                    })}
-                    className="text-primary"
-                  />
-                  <Video className="h-4 w-4" />
-                  <span className="text-sm">Virtual</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="locationType"
-                    value="presencial"
-                    checked={formData.locationType === 'presencial'}
-                    onChange={(e) => setFormData({
-                      ...formData, 
-                      locationType: e.target.value as 'virtual' | 'presencial',
-                      location: ''
-                    })}
-                    className="text-primary"
-                  />
-                  <Building className="h-4 w-4" />
-                  <span className="text-sm">Presencial</span>
-                </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  <span>{format(new Date(selectedAppointmentDetail.scheduledAt), "EEEE, d 'de' MMMM", { locale: es })}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4 text-primary" />
+                  <span>{format(new Date(selectedAppointmentDetail.scheduledAt), 'HH:mm')}</span>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Notas</p>
+                <p className="text-sm text-foreground bg-muted/40 rounded-md p-3">
+                  {selectedAppointmentDetail.notes || 'Sin notas registradas'}
+                </p>
               </div>
             </div>
-
-            {/* Ubicación/Sede */}
-            <div className="grid gap-2">
-              <Label htmlFor="location" className="text-sm font-semibold">
-                {formData.locationType === 'virtual' ? 'Plataforma' : 'Sede'} <span className="text-destructive">*</span>
-              </Label>
-              {formData.locationType === 'virtual' ? (
-                <Input 
-                  id="location" 
-                  value="Videollamada"
-                  disabled
-                  className="bg-muted"
-                />
-              ) : (
-                <Select value={formData.location} onValueChange={(value) => setFormData({...formData, location: value})}>
-                  <SelectTrigger id="location">
-                    <SelectValue placeholder="Seleccionar sede" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {locations.filter(loc => loc !== 'Videollamada').map((location) => (
-                      <SelectItem key={location} value={location}>
-                        {location}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+          ) : (
+            <div className="py-6 text-center text-muted-foreground text-sm">
+              Selecciona una cita para ver su detalle.
             </div>
-
-            {/* Doctor */}
-            <div className="grid gap-2">
-              <Label htmlFor="doctor" className="text-sm font-semibold">
-                Profesional <span className="text-destructive">*</span>
-              </Label>
-              <Select value={formData.doctor} onValueChange={(value) => setFormData({...formData, doctor: value})}>
-                <SelectTrigger id="doctor">
-                  <SelectValue placeholder="Seleccionar profesional" />
-                </SelectTrigger>
-                <SelectContent>
-                  {doctors.map((doctor) => (
-                    <SelectItem key={doctor} value={doctor}>
-                      {doctor}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Notas */}
-            <div className="grid gap-2">
-              <Label htmlFor="notes" className="text-sm font-semibold">
-                Notas Adicionales
-              </Label>
-              <Textarea 
-                id="notes" 
-                placeholder="Información adicional sobre la cita..."
-                value={formData.notes}
-                onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                rows={3}
-                className="resize-none"
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => setShowNewAppointmentModal(false)}
-              className="w-full sm:w-auto"
-            >
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleSubmitAppointment}
-              className="w-full sm:w-auto"
-            >
-              Agendar Cita
-            </Button>
-          </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
 
       {/* Content */}
       <main className="p-4 sm:p-6 lg:p-8">
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              No se pudieron cargar las citas: {error.message}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Vista de Calendario - Placeholder */}
         <section className="mb-8">
           <h2 className="text-xl font-semibold text-foreground mb-4">Vista de Calendario</h2>
@@ -473,7 +322,13 @@ export default function Citas() {
             </TabsList>
 
           <TabsContent value="hoy" className="space-y-4">
-            {todayAppointments.length > 0 ? (
+            {loading ? (
+              <Card className="border-dashed">
+                <CardContent className="p-12 text-center text-muted-foreground">
+                  Cargando citas de hoy...
+                </CardContent>
+              </Card>
+            ) : todayAppointments.length > 0 ? (
               todayAppointments.map(renderAppointmentCard)
             ) : (
               <Card className="border-dashed">
@@ -489,7 +344,13 @@ export default function Citas() {
           </TabsContent>
 
           <TabsContent value="proximas" className="space-y-4">
-            {upcomingAppointments.length > 0 ? (
+            {loading ? (
+              <Card className="border-dashed">
+                <CardContent className="p-12 text-center text-muted-foreground">
+                  Cargando próximas citas...
+                </CardContent>
+              </Card>
+            ) : upcomingAppointments.length > 0 ? (
               upcomingAppointments.map(renderAppointmentCard)
             ) : (
               <Card className="border-dashed">
@@ -505,7 +366,13 @@ export default function Citas() {
           </TabsContent>
 
           <TabsContent value="pasadas" className="space-y-4">
-            {pastAppointments.length > 0 ? (
+            {loading ? (
+              <Card className="border-dashed">
+                <CardContent className="p-12 text-center text-muted-foreground">
+                  Cargando historial de citas...
+                </CardContent>
+              </Card>
+            ) : pastAppointments.length > 0 ? (
               pastAppointments.map(renderAppointmentCard)
             ) : (
               <Card className="border-dashed">

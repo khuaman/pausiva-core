@@ -7,6 +7,11 @@ import type {
   SupabaseUserRow,
 } from '../types';
 import { getServiceSupabaseClient } from '@/utils/supabase/service';
+import {
+  provisionUserAccount,
+  teardownProvisionedUser,
+  type ProvisionedUserProfile,
+} from '../utils';
 
 type FetchFilters = {
   id?: string | null;
@@ -133,6 +138,131 @@ export async function GET(request: NextRequest) {
     console.error('[api/users/doctors] Error fetching doctors', error);
     return NextResponse.json(
       { error: 'Unexpected error fetching doctors from Supabase.' },
+      { status: 500 }
+    );
+  }
+}
+
+type CreateDoctorBody = {
+  profile?: Partial<ProvisionedUserProfile> & {
+    email?: string;
+    fullName?: string;
+  };
+  metadata?: {
+    dni?: string | null;
+    cmp?: string;
+    specialty?: string;
+  };
+  credentials?: {
+    password?: string | null;
+  };
+};
+
+function assertDoctorPayload(body: unknown): asserts body is Required<CreateDoctorBody> {
+  if (!body || typeof body !== 'object') {
+    throw new Error('Payload must be an object');
+  }
+
+  const { profile, metadata } = body as CreateDoctorBody;
+  if (!profile) {
+    throw new Error('Missing profile section');
+  }
+  if (!metadata) {
+    throw new Error('Missing metadata section');
+  }
+  if (!profile.fullName || !profile.fullName.trim()) {
+    throw new Error('Full name is required');
+  }
+  if (!profile.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email.trim().toLowerCase())) {
+    throw new Error('Valid email is required');
+  }
+  if (!metadata.cmp || !metadata.cmp.trim()) {
+    throw new Error('CMP is required');
+  }
+  if (!metadata.specialty || !metadata.specialty.trim()) {
+    throw new Error('Specialty is required');
+  }
+}
+
+function normalizeDoctorProfile(
+  profile: Required<CreateDoctorBody>['profile']
+): ProvisionedUserProfile {
+  const trimmedPhone = profile.phone?.trim();
+  const trimmedPicture = profile.pictureUrl?.trim();
+  const birthDate = profile.birthDate?.trim();
+
+  if (birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+    throw new Error('birthDate must follow YYYY-MM-DD format');
+  }
+
+  return {
+    fullName: profile.fullName.trim(),
+    email: profile.email.trim().toLowerCase(),
+    phone: trimmedPhone?.length ? trimmedPhone : null,
+    birthDate: birthDate ?? null,
+    pictureUrl: trimmedPicture?.length ? trimmedPicture : null,
+  };
+}
+
+export async function POST(request: NextRequest) {
+  let parsedBody: Required<CreateDoctorBody>;
+
+  try {
+    const raw = (await request.json()) as CreateDoctorBody;
+    assertDoctorPayload(raw);
+    parsedBody = raw as Required<CreateDoctorBody>;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid payload';
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
+
+  const supabase = getServiceSupabaseClient();
+  const profile = normalizeDoctorProfile(parsedBody.profile);
+  const doctorMetadata = {
+    cmp: parsedBody.metadata.cmp.trim(),
+    specialty: parsedBody.metadata.specialty.trim(),
+    dni: parsedBody.metadata.dni?.trim() ?? null,
+  };
+
+  try {
+    const { userId, temporaryPassword } = await provisionUserAccount(
+      supabase,
+      profile,
+      'doctor',
+      parsedBody.credentials?.password ?? null
+    );
+
+    const { error: doctorInsertError } = await supabase.from('doctors').insert({
+      id: userId,
+      cmp: doctorMetadata.cmp,
+      specialty: doctorMetadata.specialty,
+      dni: doctorMetadata.dni,
+    });
+
+    if (doctorInsertError) {
+      await teardownProvisionedUser(supabase, userId);
+      console.error('[api/users/doctors] Failed to insert doctor row', doctorInsertError);
+      return NextResponse.json(
+        { error: 'Could not create doctor record in Supabase.' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        data: {
+          id: userId,
+          email: profile.email,
+          temporaryPassword,
+        },
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error('[api/users/doctors] Error creating doctor', error);
+    const message = error instanceof Error ? error.message : 'Unexpected error creating doctor.';
+    return NextResponse.json(
+      { error: message },
       { status: 500 }
     );
   }

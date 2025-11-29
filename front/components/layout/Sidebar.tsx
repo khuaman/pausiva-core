@@ -3,6 +3,7 @@ import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { AdminCreateMenu } from './AdminCreateMenu';
 
 export const Sidebar = () => {
   const { user, logout } = useAuth();
@@ -41,6 +42,11 @@ export const Sidebar = () => {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-6 space-y-1">
+        {user?.role === 'admin' && (
+          <div className="mb-4">
+            <AdminCreateMenu />
+          </div>
+        )}
         {navItems.map((item) => (
           <NavLink
             key={item.to}
