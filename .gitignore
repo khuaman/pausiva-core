@@ -44,7 +44,7 @@ data/
 
 # dependencies
 /node_modules
-/dashboard/node_modules
+/front/node_modules
 /.pnp
 .pnp.*
 .yarn/*
