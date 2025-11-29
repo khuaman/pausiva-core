@@ -4,6 +4,104 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Fields Font Family - Text Styles */
+@font-face {
+  font-family: 'Fields';
+  src: url('/fonts/fields/fields-extralight.otf') format('opentype');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fields';
+  src: url('/fonts/fields/fields-light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fields';
+  src: url('/fonts/fields/fields-regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fields';
+  src: url('/fonts/fields/fields-medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fields';
+  src: url('/fonts/fields/fields-semibold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fields';
+  src: url('/fonts/fields/fields-extrabold.otf') format('opentype');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fields';
+  src: url('/fonts/fields/fields-black.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Fields Display - For Headings and Emphasis */
+@font-face {
+  font-family: 'Fields Display';
+  src: url('/fonts/fields/fields-display-regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fields Display';
+  src: url('/fonts/fields/fields-display-medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fields Display';
+  src: url('/fonts/fields/fields-display-semibold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fields Display';
+  src: url('/fonts/fields/fields-display-extrabold.otf') format('opentype');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fields Display';
+  src: url('/fonts/fields/fields-display-black.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* Pausiva Primary Colors */
   --pausiva-pink: 341 80% 61%;
@@ -173,8 +271,11 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
   
-  --font-serif: 'DM Serif Display', serif;
-  --font-sans: 'Inter', sans-serif;
+  /* Fields Font System - UX/UI Hierarchy */
+  --font-display: 'Fields Display', sans-serif;
+  --font-sans: 'Fields', sans-serif;
+  /* Map legacy font-serif to new Display font for instant migration */
+  --font-serif: 'Fields Display', sans-serif;
   
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
@@ -193,12 +294,107 @@
   * {
     @apply border-border;
   }
+  
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
+    font-weight: 400;
+    line-height: 1.6;
+    letter-spacing: -0.01em;
   }
+  
+  /* Typographic Hierarchy - Fields Display for Headings */
   h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-serif);
+    font-family: var(--font-display);
+    line-height: 1.1; /* Tighter line height for headings */
+    letter-spacing: -0.02em;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+    text-wrap: balance; /* Prevent orphans in headings */
+  }
+  
+  h1 {
+    font-size: 2.75rem; /* 44px - Increased for better impact */
+    font-weight: 700;
+    letter-spacing: -0.04em; /* Tighter tracking for large text */
+  }
+  
+  h2 {
+    font-size: 2.25rem; /* 36px */
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+  
+  h3 {
+    font-size: 1.75rem; /* 28px */
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  
+  h4 {
+    font-size: 1.5rem; /* 24px */
+    font-weight: 500;
+  }
+  
+  h5 {
+    font-size: 1.25rem; /* 20px */
+    font-weight: 500;
+  }
+  
+  h6 {
+    font-size: 1rem; /* 16px */
+    font-weight: 600; /* Increased weight for small headings */
+    text-transform: uppercase;
+    letter-spacing: 0.05em; /* Wide tracking for micro-headings */
+  }
+  
+  /* Body Text Hierarchy */
+  p {
+    font-family: var(--font-sans);
+    font-size: 1rem; /* 16px */
+    font-weight: 400;
+    line-height: 1.6;
+    color: hsl(var(--foreground));
+    max-width: 75ch; /* Optimal reading length */
+  }
+  
+  .text-large {
+    font-size: 1.25rem; /* 20px */
+    font-weight: 300; /* Lighter weight for large body text */
+    line-height: 1.5;
+  }
+  
+  .text-small {
+    font-size: 0.875rem; /* 14px */
+    font-weight: 400;
+    line-height: 1.5;
+  }
+  
+  .text-xs {
+    font-size: 0.75rem; /* 12px */
+    font-weight: 500; /* Slightly heavier for legibility */
+    line-height: 1.4;
+  }
+  
+  /* Emphasis and Weight Variants */
+  strong, .font-semibold {
+    font-weight: 600;
+  }
+  
+  .font-medium {
+    font-weight: 500;
+  }
+  
+  .font-bold {
+    font-weight: 700;
+  }
+  
+  /* Display text for hero sections */
+  .text-display {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
   }
 }
 
