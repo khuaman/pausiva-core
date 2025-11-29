@@ -1,4 +1,4 @@
-import { Home, Users, Calendar, Settings, User } from 'lucide-react';
+import { Home, Users, Calendar, Settings, User, Stethoscope } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -12,6 +12,7 @@ export const Sidebar = () => {
       return [
         { to: '/dashboard', icon: Home, label: 'Dashboard' },
         { to: '/pacientes', icon: Users, label: 'Pacientes' },
+        { to: '/doctores', icon: Stethoscope, label: 'Doctores' },
         { to: '/citas', icon: Calendar, label: 'Citas' },
         { to: '/configuracion', icon: Settings, label: 'Configuración' },
       ];

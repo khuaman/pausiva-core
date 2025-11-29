@@ -3,12 +3,14 @@
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MetricCard } from '@/components/dashboard/MetricCard';
-import { AlertCard } from '@/components/dashboard/AlertCard';
-import { PatientRow } from '@/components/dashboard/PatientRow';
-import { mockMetrics, mockAlerts, getTodaysPatients } from '@/data/mockData';
-import { Calendar, Users, Activity, Clock, Bell } from 'lucide-react';
+import { PatientListRow } from '@/components/dashboard/PatientListRow';
+import { usePatients } from '@/hooks/use-patients';
+import { useDoctors } from '@/hooks/use-doctors';
+import { useDashboardMetrics } from '@/hooks/use-dashboard-metrics';
+import { Calendar, Users, Activity, Clock, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const iconMap: Record<string, any> = {
   calendar: Calendar,
@@ -19,11 +21,23 @@ const iconMap: Record<string, any> = {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const todaysPatients = getTodaysPatients();
+  const { patients, loading: loadingPatients, error: patientsError } = usePatients({ limit: 10 });
+  const { doctors, loading: loadingDoctors } = useDoctors();
+  const { metrics, loading: loadingMetrics } = useDashboardMetrics();
 
   const handleViewDetail = (patientId: string) => {
     router.push(`/paciente/${patientId}`);
   };
+
+  const isLoading = loadingPatients || loadingDoctors || loadingMetrics;
+
+  // Calculate high-priority patients (symptom score >= 7 or multiple risk factors)
+  const highPriorityCount = patients.filter((p) => {
+    const profile = p.metadata.clinicalProfile as any;
+    const symptomScore = profile?.symptom_score || 0;
+    const riskFactors = profile?.risk_factors || [];
+    return symptomScore >= 7 || riskFactors.length >= 2;
+  }).length;
 
   return (
     <div className="flex-1 overflow-auto">
@@ -38,97 +52,111 @@ export default function DashboardPage() {
               {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Bell className="h-6 w-6 text-muted-foreground" />
-              {mockAlerts.length > 0 && (
-                <span className="absolute -top-1 -right-1 h-5 w-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
-                  {mockAlerts.length}
-                </span>
-              )}
-            </div>
-          </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="p-8 space-y-8">
+        {/* Error State */}
+        {patientsError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Error al cargar los datos: {patientsError.message}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Metrics */}
         <section>
           <h2 className="text-xl font-semibold text-foreground mb-4">Métricas Generales</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {mockMetrics.map((metric) => (
-              <MetricCard
-                key={metric.label}
-                label={metric.label}
-                value={metric.value}
-                change={metric.change}
-                icon={iconMap[metric.icon]}
-              />
-            ))}
+            <MetricCard
+              label="Total de Pacientes"
+              value={isLoading ? 0 : metrics?.totalPatients || 0}
+              change={0}
+              icon={Users}
+            />
+            <MetricCard
+              label="Pacientes Activos"
+              value={isLoading ? 0 : metrics?.activePatients || 0}
+              change={0}
+              icon={Activity}
+            />
+            <MetricCard
+              label="Doctores Disponibles"
+              value={isLoading ? 0 : doctors.length}
+              change={0}
+              icon={Calendar}
+            />
+            <MetricCard
+              label="Prioridad Alta"
+              value={isLoading ? 0 : highPriorityCount}
+              change={0}
+              icon={Clock}
+            />
           </div>
         </section>
 
-        {/* Alerts */}
-        {mockAlerts.length > 0 && (
-          <section>
-            <h2 className="text-xl font-semibold text-foreground mb-4">
-              Alertas Urgentes
-            </h2>
-            <div className="space-y-4">
-              {mockAlerts.map((alert) => (
-                <AlertCard
-                  key={alert.id}
-                  alert={alert}
-                  onViewDetail={handleViewDetail}
-                />
-              ))}
-            </div>
-          </section>
+        {/* High Priority Patients Alert */}
+        {highPriorityCount > 0 && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Hay {highPriorityCount} paciente{highPriorityCount > 1 ? 's' : ''} con prioridad alta que requiere{highPriorityCount > 1 ? 'n' : ''} atención.
+            </AlertDescription>
+          </Alert>
         )}
 
-        {/* Today's Patients */}
+        {/* Patients List */}
         <section>
           <Card>
             <CardHeader>
-              <CardTitle>Pacientes del Día</CardTitle>
+              <CardTitle>Pacientes Recientes</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                        Paciente
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                        Hora
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                        Doctor
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                        Tipo
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                        Estado
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {todaysPatients.map((patient) => (
-                      <PatientRow
-                        key={patient.id}
-                        patient={patient}
-                        onViewProfile={handleViewDetail}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {isLoading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Cargando pacientes...
+                </div>
+              ) : patients.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No hay pacientes registrados
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                          Paciente
+                        </th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                          Etapa de Menopausia
+                        </th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                          Nivel de Síntomas
+                        </th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                          Prioridad
+                        </th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                          Acciones
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {patients.map((patient) => (
+                        <PatientListRow
+                          key={patient.id}
+                          patient={patient}
+                          onViewProfile={handleViewDetail}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </section>
