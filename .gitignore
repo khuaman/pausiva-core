@@ -128,12 +128,10 @@ Desktop.ini
 
 # IDE / Editors
 .idea/
-.vscode/
 *.swp
 *.swo
 *.sublime-workspace
 *.sublime-project
-.cursor/
 *.code-workspace
 
 # Secrets & Environment
