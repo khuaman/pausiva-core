@@ -32,6 +32,15 @@ Define the following Postgres enums in Supabase:
 - **`timeline_event_type`**
   - Values: `appointment`, `paraclinic`, `plan`, `followup`, `payment`
 
+- **`staff_role`**
+  - Values: `admin`, `support`, `billing`, `operations`
+
+- **`membership_status`**
+  - Values: `active`, `paused`, `cancelled`, `expired`
+
+- **`membership_tier`**
+  - Values: `basic`, `standard`, `premium`
+
 ---
 
 ## 2. Tables
@@ -94,7 +103,32 @@ Doctor entity. One-to-one with `users` for doctors.
 
 ---
 
-### 2.4 `appointments`
+### 2.4 `staff`
+
+Staff entity. One-to-one with `users` for staff members who can manage users, view payments, and handle memberships.
+
+| Column       | Type         | Nullable | Default    | Constraints / Notes                                  |
+|--------------|--------------|----------|------------|------------------------------------------------------|
+| `id`         | `uuid`       | NO       | —          | **PK**. **FK → `users.id`** (staff is a user).      |
+| `dni`        | `text`       | YES      | —          | Optional Peruvian DNI. **UNIQUE** if present.       |
+| `employee_id`| `text`       | NO       | —          | Internal employee identifier. **UNIQUE**.           |
+| `role`       | `staff_role` | NO       | `support`  | `admin`, `support`, `billing`, or `operations`.     |
+| `department` | `text`       | YES      | —          | Department or area (e.g. "Customer Support").       |
+| `created_at` | `timestamptz`| NO       | `now()`    | Creation timestamp.                                 |
+| `updated_at` | `timestamptz`| NO       | `now()`    | Last update timestamp.                              |
+
+**Indexes / Constraints**
+- PK: `id`
+- UNIQUE: `employee_id`
+- UNIQUE (optional): `dni`
+- FK: `id` → `users.id` (on delete cascade)
+- Indexes:
+  - `role`
+  - `department`
+
+---
+
+### 2.5 `appointments`
 
 Medical appointments (`pre-consulta` / `consulta`) linking patients and doctors.
 
@@ -121,7 +155,7 @@ Medical appointments (`pre-consulta` / `consulta`) linking patients and doctors.
 
 ---
 
-### 2.5 `paraclinics`
+### 2.6 `paraclinics`
 
 Paraclinical exams/results (labs, imaging, procedures) associated with an appointment.
 
@@ -143,7 +177,7 @@ Paraclinical exams/results (labs, imaging, procedures) associated with an appoin
 
 ---
 
-### 2.6 `plans`
+### 2.7 `plans`
 
 Proposed plan of the doctor (e.g. treatment, prescription) linked to an appointment.  
 The `plan` is intentionally flexible to support different input formats.
@@ -166,7 +200,7 @@ The `plan` is intentionally flexible to support different input formats.
 
 ---
 
-### 2.7 `followings`
+### 2.8 `followings`
 
 AI-initiated or automated follow-ups (e.g. WhatsApp interactions) with patients.
 
@@ -197,7 +231,7 @@ AI-initiated or automated follow-ups (e.g. WhatsApp interactions) with patients.
 
 ---
 
-### 2.8 `payments`
+### 2.9 `payments`
 
 Payments linked 1:1 to appointments (one payment per appointment).
 
@@ -223,7 +257,7 @@ Payments linked 1:1 to appointments (one payment per appointment).
 
 ---
 
-### 2.9 `patient_timeline_events`
+### 2.10 `patient_timeline_events`
 
 Unified timeline of events for each patient (appointments, plans, exams, follow-ups, payments).
 
@@ -249,11 +283,107 @@ This can be implemented either as a **real table** (populated by app code or tri
 
 ---
 
+### 2.11 `memberships`
+
+Patient membership/subscription management. Tracks active, paused, cancelled, and expired memberships.
+
+| Column               | Type                | Nullable | Default      | Constraints / Notes                                                       |
+|---------------------|---------------------|----------|--------------|---------------------------------------------------------------------------|
+| `id`                | `uuid`              | NO       | random uuid  | **PK**.                                                                   |
+| `patient_id`        | `uuid`              | NO       | —            | **FK → `patients.id`**.                                                   |
+| `tier`              | `membership_tier`   | NO       | `basic`      | `basic`, `standard`, or `premium`.                                       |
+| `status`            | `membership_status` | NO       | `active`     | `active`, `paused`, `cancelled`, or `expired`.                           |
+| `start_date`        | `timestamptz`       | NO       | `now()`      | When membership starts.                                                   |
+| `end_date`          | `timestamptz`       | YES      | —            | When membership ends (null if ongoing/subscription).                     |
+| `renewal_date`      | `timestamptz`       | YES      | —            | Next renewal date (for active subscriptions).                            |
+| `price`             | `numeric(10,2)`     | NO       | —            | Membership price.                                                         |
+| `currency`          | `char(3)`           | NO       | `'PEN'`      | ISO 4217 currency code.                                                   |
+| `auto_renew`        | `boolean`           | NO       | `true`       | Whether membership auto-renews.                                          |
+| `cancelled_at`      | `timestamptz`       | YES      | —            | When membership was cancelled.                                           |
+| `cancelled_by`      | `uuid`              | YES      | —            | **FK → `users.id`** (staff or user who cancelled).                       |
+| `cancellation_reason`| `text`            | YES      | —            | Reason for cancellation.                                                 |
+| `metadata`          | `jsonb`             | YES      | `null`       | Additional flexible data (benefits, features, etc).                      |
+| `created_at`        | `timestamptz`       | NO       | `now()`      | Creation timestamp.                                                       |
+| `updated_at`        | `timestamptz`       | NO       | `now()`      | Last update timestamp.                                                    |
+
+**Indexes / Constraints**
+- PK: `id`
+- FK: `patient_id` → `patients.id` (on delete cascade)
+- FK: `cancelled_by` → `users.id` (on delete set null)
+- CHECK: `price >= 0`
+- CHECK: `end_date is null or end_date > start_date`
+- Indexes:
+  - `patient_id`
+  - `status`
+  - `tier`
+  - `renewal_date`
+  - `(status, renewal_date)`
+
+---
+
+### 2.12 `membership_payments`
+
+Payment history for memberships (separate from appointment payments).
+
+| Column          | Type            | Nullable | Default      | Constraints / Notes                                            |
+|----------------|-----------------|----------|--------------|----------------------------------------------------------------|
+| `id`           | `uuid`          | NO       | random uuid  | **PK**.                                                        |
+| `membership_id`| `uuid`          | NO       | —            | **FK → `memberships.id`**.                                     |
+| `transaction_id`| `text`         | NO       | —            | External payment provider transaction ID. **UNIQUE**.         |
+| `amount`       | `numeric(10,2)` | NO       | —            | Payment amount.                                                |
+| `currency`     | `char(3)`       | NO       | `'PEN'`      | ISO 4217 currency code.                                        |
+| `status`       | `payment_status`| NO       | `pending`    | `pending`, `paid`, `refunded`, `failed`.                      |
+| `payment_method`| `text`         | YES      | —            | Payment method used (e.g. "card", "transfer", "cash").        |
+| `paid_at`      | `timestamptz`   | YES      | —            | When payment was successfully completed.                       |
+| `processed_by` | `uuid`          | YES      | —            | **FK → `staff.id`** (staff who processed, if manual).         |
+| `created_at`   | `timestamptz`   | NO       | `now()`      | Creation timestamp.                                            |
+
+**Indexes / Constraints**
+- PK: `id`
+- UNIQUE: `transaction_id`
+- FK: `membership_id` → `memberships.id` (on delete cascade)
+- FK: `processed_by` → `staff.id` (on delete set null)
+- CHECK: `amount > 0`
+- Indexes:
+  - `membership_id`
+  - `status`
+  - `paid_at`
+  - `processed_by`
+
+---
+
+### 2.13 `staff_activity_log`
+
+Audit log tracking staff actions for compliance and monitoring. Logs user management, payment views, and membership operations.
+
+| Column        | Type         | Nullable | Default      | Constraints / Notes                                                    |
+|--------------|--------------|----------|--------------|------------------------------------------------------------------------|
+| `id`         | `uuid`       | NO       | random uuid  | **PK**.                                                                |
+| `staff_id`   | `uuid`       | NO       | —            | **FK → `staff.id`**.                                                   |
+| `action_type`| `text`       | NO       | —            | Action performed (e.g. "view_payment", "update_user", "cancel_membership"). |
+| `target_table`| `text`      | YES      | —            | Table affected by the action (e.g. "users", "payments", "memberships").|
+| `target_id`  | `uuid`       | YES      | —            | ID of the affected record. (Logical FK; cannot use dynamic FK).       |
+| `description`| `text`       | NO       | —            | Human-readable description of the action.                             |
+| `metadata`   | `jsonb`      | YES      | `null`       | Additional context (IP address, changed fields, etc).                 |
+| `created_at` | `timestamptz`| NO       | `now()`      | When the action occurred.                                              |
+
+**Indexes / Constraints**
+- PK: `id`
+- FK: `staff_id` → `staff.id` (on delete cascade)
+- Indexes:
+  - `staff_id`
+  - `action_type`
+  - `created_at`
+  - `(target_table, target_id)`
+
+---
+
 ## 3. Summary of Relationships
 
 - `auth.users` 1 — 1 `users`
 - `users` 1 — 1 `patients` (for users that are patients)
 - `users` 1 — 1 `doctors` (for users that are doctors)
+- `users` 1 — 1 `staff` (for users that are staff members)
 - `patients` 1 — N `appointments`
 - `doctors` 1 — N `appointments`
 - `appointments` 1 — N `paraclinics`
@@ -261,6 +391,10 @@ This can be implemented either as a **real table** (populated by app code or tri
 - `appointments` 1 — 1 `payments`
 - `patients` 1 — N `followings` (optionally linked to an `appointment`)
 - `patients` 1 — N `patient_timeline_events`
+- `patients` 1 — N `memberships`
+- `memberships` 1 — N `membership_payments`
+- `staff` 1 — N `staff_activity_log`
+- `staff` 1 — N `membership_payments` (as processor)
 
 This spec is the **authoritative source** for creating Supabase migrations via the CLI. Use the column names, types, constraints, and enums exactly as defined here when writing the SQL in your migration files.
 
