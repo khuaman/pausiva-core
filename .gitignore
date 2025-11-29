@@ -132,7 +132,6 @@ Desktop.ini
 *.swo
 *.sublime-workspace
 *.sublime-project
-.cursor/
 *.code-workspace
 
 # Secrets & Environment
