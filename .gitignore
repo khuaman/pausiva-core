@@ -9,6 +9,8 @@ env/
 venv/
 .venv/
 ENV/
+.env/
+virtualenv/
 
 # Python bytecode
 __pycache__/
@@ -27,23 +29,40 @@ eggs/
 .eggs/
 *.manifest
 *.spec
+sdist/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
 
 # Testing
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 .tox/
 .nox/
+coverage.xml
+*.cover
+nosetests.xml
 
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+.pyre/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
 
 # =====================
 # Node.js / Frontend
 # =====================
 
-# dependencies
-/node_modules
-/front/node_modules
-/front/.next
+# Dependencies
+node_modules/
+**/node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -52,16 +71,46 @@ htmlcov/
 !.yarn/releases
 !.yarn/versions
 
-# testing
+# Testing
 /coverage
 
-# next.js
-/.next/
-/dashboard/.next/
+# Next.js
+.next/
+**/.next/
 /out/
 
-# production
+# Nuxt.js
+.nuxt/
+
+# Production builds
 /build
+dist/
+
+# Turbo
+.turbo/
+
+# =====================
+# Project Specific
+# =====================
+
+# Patient data (local JSON storage)
+data/
+**/data/patients/
+**/data/conversations/
+**/data/medications/
+**/data/appointments/
+**/data/symptoms/
+
+# Supabase local
+.supabase/
+supabase/.branches/
+supabase/.temp/
+
+# =====================
+# Docker
+# =====================
+docker-compose.override.yml
+.docker/
 
 # =====================
 # General
@@ -69,21 +118,34 @@ htmlcov/
 
 # OS files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+Desktop.ini
 
-# IDE
+# IDE / Editors
 .idea/
 .vscode/
 *.swp
 *.swo
+*.sublime-workspace
+*.sublime-project
 .cursor/
+*.code-workspace
 
-# Secrets
+# Secrets & Environment
 *.pem
+*.key
+*.crt
 .env
 .env.*
 .env.local
 .env.*.local
+!.env.example
+!.env.template
 
 # Logs
 *.log
@@ -92,10 +154,78 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 logs/
+lerna-debug.log*
 
-# vercel
+# Vercel
 .vercel
 
-# typescript
+# TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+.cache/
+.tmp/
+tmp/
+temp/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Debug
+.debug/
+
+# Optional npm cache
+.npm/
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Serverless
+.serverless/
+
+# FuseBox
+.fusebox/
+
+# DynamoDB Local
+.dynamodb/
+
+# TernJS
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# Parcel
+.parcel-cache/
+
+# MacOS
+.AppleDouble
+.LSOverride
+Icon
+
+# Linux
+*~
+
+# Windows
+$RECYCLE.BIN/
