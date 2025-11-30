@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.chat.router import router as chat_router
+from app.chat_v2.router import router as chat_v2_router
 from app.health.router import router as health_router
 from app.lifespan import lifespan
 from app.shared.config import get_settings
@@ -33,7 +34,12 @@ app.add_middleware(
 )
 
 app.include_router(health_router)
-app.include_router(chat_router, prefix="/chat")
+
+# Chat V1 (legacy multi-agent orchestrator)
+app.include_router(chat_router, prefix="/v1/chat", tags=["Chat V1"])
+
+# Chat V2 (single agent with tools)
+app.include_router(chat_v2_router, prefix="/v2/chat", tags=["Chat V2"])
 
 
 @app.get("/")

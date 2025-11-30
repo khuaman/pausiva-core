@@ -272,6 +272,8 @@ class AppointmentRepository:
         patient_id: str,
         status: str | None = None,
         upcoming_only: bool = False,
+        include_past: bool = False,
+        limit: int = 10,
     ) -> list[dict]:
         """Get appointments for a patient."""
         if not self.client:
@@ -283,18 +285,41 @@ class AppointmentRepository:
                 .select("*, doctors(users(full_name))")
                 .eq("patient_id", patient_id)
                 .order("scheduled_at", desc=False)
+                .limit(limit)
             )
 
             if status:
                 query = query.eq("status", status)
 
-            if upcoming_only:
+            if upcoming_only or not include_past:
                 query = query.gte("scheduled_at", datetime.now().isoformat())
 
             result = query.execute()
             return [self._format_appointment(a) for a in (result.data or [])]
         except Exception:
             return []
+
+    def get_by_id(self, appointment_id: str, patient_id: str | None = None) -> Optional[dict]:
+        """Get a specific appointment by ID."""
+        if not self.client:
+            return None
+
+        try:
+            query = (
+                self.client.table("appointments")
+                .select("*, doctors(users(full_name))")
+                .eq("id", appointment_id)
+            )
+
+            if patient_id:
+                query = query.eq("patient_id", patient_id)
+
+            result = query.single().execute()
+            if result.data:
+                return self._format_appointment(result.data)
+            return None
+        except Exception:
+            return None
 
     def get_upcoming(self, patient_id: str, limit: int = 5) -> list[dict]:
         """Get upcoming appointments."""
