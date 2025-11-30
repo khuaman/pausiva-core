@@ -196,8 +196,8 @@ function normalizeDoctorProfile(
   }
 
   return {
-    fullName: profile.fullName.trim(),
-    email: profile.email.trim().toLowerCase(),
+    fullName: profile.fullName?.trim() ?? '',
+    email: profile.email?.trim().toLowerCase() ?? '',
     phone: trimmedPhone?.length ? trimmedPhone : null,
     birthDate: birthDate ?? null,
     pictureUrl: trimmedPicture?.length ? trimmedPicture : null,
@@ -219,8 +219,8 @@ export async function POST(request: NextRequest) {
   const supabase = getServiceSupabaseClient();
   const profile = normalizeDoctorProfile(parsedBody.profile);
   const doctorMetadata = {
-    cmp: parsedBody.metadata.cmp.trim(),
-    specialty: parsedBody.metadata.specialty.trim(),
+    cmp: parsedBody.metadata.cmp?.trim() ?? '',
+    specialty: parsedBody.metadata.specialty?.trim() ?? '',
     dni: parsedBody.metadata.dni?.trim() ?? null,
   };
 

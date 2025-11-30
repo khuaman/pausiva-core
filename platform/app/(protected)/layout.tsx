@@ -22,12 +22,12 @@ export default function ProtectedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!isLoading && !user) {
       router.push("/login");
       return;
     }
@@ -50,9 +50,9 @@ export default function ProtectedLayout({
         }
       }
     }
-  }, [user, loading, router, pathname]);
+  }, [user, isLoading, router, pathname]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="text-center">

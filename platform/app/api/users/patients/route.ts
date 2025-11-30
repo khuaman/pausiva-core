@@ -210,8 +210,8 @@ function normalizeProfile(profile: Required<CreatePatientBody>['profile']): Prov
   }
 
   return {
-    fullName: profile.fullName.trim(),
-    email: profile.email.trim().toLowerCase(),
+    fullName: profile.fullName?.trim() ?? '',
+    email: profile.email?.trim().toLowerCase() ?? '',
     phone: trimmedPhone?.length ? trimmedPhone : null,
     birthDate: birthDate ?? null,
     pictureUrl: trimmedPicture?.length ? trimmedPicture : null,
@@ -234,7 +234,7 @@ export async function POST(request: NextRequest) {
 
   const profile = normalizeProfile(parsedBody.profile);
   const patientMetadata = {
-    dni: parsedBody.metadata.dni.trim(),
+    dni: parsedBody.metadata.dni?.trim() ?? '',
     clinicalProfile: normalizeClinicalProfile(parsedBody.metadata.clinicalProfile),
   };
 

@@ -37,6 +37,7 @@ function parseLimit(rawLimit: string | null): number {
 }
 
 function mapFollowing(row: SupabaseFollowingRow): ApiFollowing {
+  const appointmentData = row.appointment?.[0];
   return {
     id: row.id,
     patientId: row.patient_id,
@@ -50,13 +51,13 @@ function mapFollowing(row: SupabaseFollowingRow): ApiFollowing {
     severityScore: row.severity_score,
     isUrgent: row.is_urgent,
     createdAt: row.created_at,
-    appointment: row.appointment
+    appointment: appointmentData
       ? {
-          id: row.appointment.id,
-          type: row.appointment.type,
-          status: row.appointment.status,
-          scheduledAt: row.appointment.scheduled_at,
-          notes: row.appointment.notes,
+          id: appointmentData.id,
+          type: appointmentData.type,
+          status: appointmentData.status,
+          scheduledAt: appointmentData.scheduled_at,
+          notes: appointmentData.notes,
         }
       : null,
   };
