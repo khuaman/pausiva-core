@@ -20,6 +20,7 @@ export type ApiPatient = {
     consultasCount: number;
     preconsultasCount: number;
     hasPlans: boolean;
+    lastAppointmentDate: string | null;
   };
 };
 

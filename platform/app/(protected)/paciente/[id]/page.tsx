@@ -287,7 +287,7 @@ export default function PatientDetailPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border bg-muted/50">
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-foreground" colspan="2">
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-foreground" colSpan={2}>
                       Estadísticas Rápidas
                     </th>
                   </tr>
@@ -349,7 +349,7 @@ export default function PatientDetailPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-muted/50">
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground" colspan="2">
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground" colSpan={2}>
                         Resumen Clínico
                       </th>
                     </tr>
@@ -697,7 +697,7 @@ export default function PatientDetailPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-muted/50">
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground" colspan="2">
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground" colSpan={2}>
                         Perfil Clínico Completo
                       </th>
                     </tr>
