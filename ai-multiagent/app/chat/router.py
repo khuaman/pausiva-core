@@ -1,16 +1,12 @@
-"""FastAPI router for the chat API."""
+"""FastAPI router for the chat API (V1)."""
 
 from fastapi import APIRouter, HTTPException
-
-from app.shared.config import get_settings
 
 from .dependencies import ChatServiceDep
 from .schemas import (
     CheckinRequest,
-    ContextResponse,
     MessageRequest,
     MessageResponse,
-    StorageStatusResponse,
 )
 
 router = APIRouter(tags=["Chat"])
@@ -92,48 +88,3 @@ async def send_checkin(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/context/{phone}", response_model=ContextResponse)
-async def get_context(
-    phone: str,
-    service: ChatServiceDep,
-) -> ContextResponse:
-    """
-    Get the context for a patient.
-
-    Args:
-        phone: Patient phone number
-        service: Injected chat service
-
-    Returns:
-        ContextResponse with patient context
-    """
-    try:
-        context = service.get_patient_context(phone)
-        return ContextResponse(**context)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/storage/status", response_model=StorageStatusResponse)
-async def get_storage_status() -> StorageStatusResponse:
-    """
-    Get the storage status.
-
-    Returns:
-        StorageStatusResponse with storage mode and configuration
-    """
-    settings = get_settings()
-
-    masked_url = None
-    if settings.SUPABASE_URL:
-        parts = settings.SUPABASE_URL.split(".")
-        if len(parts) >= 2:
-            masked_url = f"{parts[0][:12]}...{parts[-1]}"
-
-    return StorageStatusResponse(
-        mode="supabase" if settings.supabase_configured else "json",
-        supabase_configured=settings.supabase_configured,
-        supabase_url=masked_url,
-    )

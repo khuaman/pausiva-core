@@ -1,7 +1,8 @@
 {
   "dockerfile_lines": [],
   "graphs": {
-    "pausiva_chat": "app.chat.orchestrator:graph"
+    "pausiva_chat_v1": "app.chat.orchestrator:graph",
+    "pausiva_chat_v2": "app.chat_v2.agent:compile_graph"
   },
   "env": ".env",
   "python_version": "3.12",
