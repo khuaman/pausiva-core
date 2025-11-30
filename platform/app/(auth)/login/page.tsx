@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -14,8 +14,25 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const router = useRouter();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      // Role-based redirect
+      if (user.role === 'paciente') {
+        router.push('/mi-perfil');
+      } else if (user.role === 'doctor') {
+        router.push('/pacientes');
+      } else if (user.role === 'staff') {
+        // Staff users (admin, support, billing, operations) get full access to dashboard
+        router.push('/dashboard');
+      } else {
+        router.push('/mi-perfil');
+      }
+    }
+  }, [user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,14 +40,13 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
+      
       toast.success('Bienvenida a Pausiva');
       
-      // Redirect based on role will be handled by the route protection / guard logic
-      // But for immediate feedback we can redirect to dashboard or profile
-      // The AuthContext/Guard might also trigger redirect, but explicit push is fine.
-      router.push('/dashboard');
+      // Redirect will be handled by the useEffect above once user state updates
     } catch (error) {
-      toast.error('Credenciales inválidas');
+      const errorMessage = error instanceof Error ? error.message : 'Credenciales inválidas';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -85,9 +101,8 @@ export default function LoginPage() {
           <div className="mt-6 p-4 bg-accent rounded-lg">
             <p className="text-sm font-medium text-foreground mb-2">Usuarios de prueba:</p>
             <div className="space-y-1 text-xs text-muted-foreground">
-              <p>Admin: admin@pausiva.com / admin123</p>
-              <p>Doctor: doctor@pausiva.com / doctor123</p>
-              <p>Paciente: paciente@pausiva.com / paciente123</p>
+              <p>Admin: admin@pausiva.pe / admin123</p>
+              <p>Doctor: sofia.paredes@example.com / password123</p>
             </div>
           </div>
         </CardContent>
