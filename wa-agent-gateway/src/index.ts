@@ -9,7 +9,7 @@ app.use(express.json());
 
 // Health check endpoint
 app.get("/", (_req, res) => {
-  res.json({ status: "ok", service: "whatsapp-agent-api" });
+  res.json({ status: "ok", service: "wa-agent-gateway" });
 });
 
 // WhatsApp webhook verification (GET)
@@ -19,7 +19,6 @@ app.get("/webhook", verifyWebhook);
 app.post("/webhook", handleWebhook);
 
 // Proactive message endpoint (POST)
-// Used by the platform to send messages to users via WhatsApp
 app.post("/api/send-message", handleProactiveMessage);
 
 // Start server

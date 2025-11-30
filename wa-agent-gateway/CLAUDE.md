@@ -36,7 +36,7 @@ src/
 
 ### Endpoints
 
-- `GET /` - Health check endpoint (returns `{"status": "ok", "service": "whatsapp-agent-api"}`)
+- `GET /` - Health check endpoint (returns `{"status": "ok", "service": "wa-agent-gateway"}`)
 - `GET /webhook` - WhatsApp webhook verification (Meta requirement)
 - `POST /webhook` - WhatsApp message webhook handler
 - `POST /api/send-message` - Proactive message endpoint (for platform to send messages to users)
