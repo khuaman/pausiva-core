@@ -41,6 +41,15 @@ Define the following Postgres enums in Supabase:
 - **`membership_tier`**
   - Values: `basic`, `standard`, `premium`
 
+- **`conversation_channel`**
+  - Values: `whatsapp`, `web`, `app`
+
+- **`conversation_status`**
+  - Values: `active`, `ended`, `archived`
+
+- **`message_role`**
+  - Values: `user`, `assistant`, `system`
+
 ---
 
 ## 2. Tables
@@ -132,26 +141,29 @@ Staff entity. One-to-one with `users` for staff members who can manage users, vi
 
 Medical appointments (`pre-consulta` / `consulta`) linking patients and doctors.
 
-| Column        | Type               | Nullable | Default    | Constraints / Notes                                                 |
-|--------------|--------------------|----------|------------|---------------------------------------------------------------------|
-| `id`         | `uuid`             | NO       | random uuid| **PK**.                                                              |
-| `patient_id` | `uuid`             | NO       | —          | **FK → `patients.id`**.                                             |
-| `doctor_id`  | `uuid`             | NO       | —          | **FK → `doctors.id`**.                                              |
-| `type`       | `appointment_type` | NO       | —          | `pre_consulta` or `consulta`.                                      |
-| `status`     | `appointment_status`| NO      | `scheduled`| Lifecycle: `scheduled`, `completed`, `cancelled`, `no_show`, etc.  |
-| `scheduled_at`| `timestamptz`     | NO       | —          | Date/time of the appointment.                                      |
-| `notes`      | `text`             | YES      | —          | Doctor notes from the appointment.                                 |
-| `created_at` | `timestamptz`      | NO       | `now()`    | Creation timestamp.                                                |
-| `updated_at` | `timestamptz`      | NO       | `now()`    | Last update timestamp.                                             |
+| Column          | Type               | Nullable | Default    | Constraints / Notes                                                 |
+|----------------|--------------------|----------|------------|---------------------------------------------------------------------|
+| `id`           | `uuid`             | NO       | random uuid| **PK**.                                                              |
+| `patient_id`   | `uuid`             | NO       | —          | **FK → `patients.id`**.                                             |
+| `doctor_id`    | `uuid`             | NO       | —          | **FK → `doctors.id`**.                                              |
+| `type`         | `appointment_type` | NO       | —          | `pre_consulta` or `consulta`.                                      |
+| `status`       | `appointment_status`| NO      | `scheduled`| Lifecycle: `scheduled`, `completed`, `cancelled`, `no_show`, etc.  |
+| `scheduled_at` | `timestamptz`      | NO       | —          | Date/time of the appointment.                                      |
+| `notes`        | `text`             | YES      | —          | Doctor notes from the appointment.                                 |
+| `conversation_id`| `uuid`           | YES      | —          | **FK → `conversations.id`** (AI conversation that created this).   |
+| `created_at`   | `timestamptz`      | NO       | `now()`    | Creation timestamp.                                                |
+| `updated_at`   | `timestamptz`      | NO       | `now()`    | Last update timestamp.                                             |
 
 **Indexes / Constraints**
 - PK: `id`
 - FK: `patient_id` → `patients.id` (on delete cascade)
-- FK: `doctor_id` → `doctors.id` (on delete restrict or cascade; choose per policy)
+- FK: `doctor_id` → `doctors.id` (on delete restrict)
+- FK: `conversation_id` → `conversations.id` (on delete set null)
 - Indexes:
   - `patient_id`
   - `doctor_id`
   - `scheduled_at`
+  - `conversation_id`
 
 ---
 
@@ -204,7 +216,7 @@ The `plan` is intentionally flexible to support different input formats.
 
 AI-initiated or automated follow-ups (e.g. WhatsApp interactions) with patients.
 
-| Column         | Type               | Nullable | Default      | Constraints / Notes                                                                 |
+| Column          | Type               | Nullable | Default      | Constraints / Notes                                                                 |
 |----------------|--------------------|----------|--------------|-------------------------------------------------------------------------------------|
 | `id`           | `uuid`             | NO       | random uuid  | **PK**.                                                                             |
 | `patient_id`   | `uuid`             | NO       | —            | **FK → `patients.id`**.                                                             |
@@ -217,17 +229,21 @@ AI-initiated or automated follow-ups (e.g. WhatsApp interactions) with patients.
 | `summary`      | `text`             | YES      | —            | Short human-readable summary.                                                      |
 | `severity_score`| `integer`         | YES      | —            | 0–10 severity/intensity score (derived).                                           |
 | `is_urgent`    | `boolean`          | NO       | `false`      | Flag used for urgent alerts on the dashboard.                                      |
+| `conversation_id`| `uuid`           | YES      | —            | **FK → `conversations.id`** (AI conversation that created this).                   |
 | `created_at`   | `timestamptz`      | NO       | `now()`      | Creation timestamp.                                                                 |
 
 **Indexes / Constraints**
 - PK: `id`
 - FK: `patient_id` → `patients.id` (on delete cascade)
-- FK: `appointment_id` → `appointments.id` (on delete set null or cascade, per policy)
+- FK: `appointment_id` → `appointments.id` (on delete set null)
+- FK: `conversation_id` → `conversations.id` (on delete set null)
+- CHECK: `severity_score IS NULL OR (severity_score >= 0 AND severity_score <= 10)`
 - Indexes:
   - `patient_id`
   - `appointment_id`
   - `is_urgent`
   - `(patient_id, contacted_at)`
+  - `conversation_id`
 
 ---
 
@@ -250,7 +266,8 @@ Payments linked 1:1 to appointments (one payment per appointment).
 - PK: `id`
 - UNIQUE: `appointment_id`
 - UNIQUE: `transaction_id`
-- FK: `appointment_id` → `appointments.id` (on delete cascade or restrict; choose per policy)
+- FK: `appointment_id` → `appointments.id` (on delete restrict)
+- CHECK: `amount > 0`
 - Indexes:
   - `status`
   - `(status, created_at)`
@@ -283,7 +300,71 @@ This can be implemented either as a **real table** (populated by app code or tri
 
 ---
 
-### 2.11 `memberships`
+### 2.11 `conversations`
+
+AI chat sessions (e.g. WhatsApp conversations) with patients tracked for context and history.
+
+| Column        | Type                | Nullable | Default      | Constraints / Notes                                                       |
+|--------------|---------------------|----------|--------------|---------------------------------------------------------------------------|
+| `id`         | `uuid`              | NO       | random uuid  | **PK**.                                                                   |
+| `thread_id`  | `text`              | NO       | —            | Unique identifier for the conversation thread. **UNIQUE**.               |
+| `patient_id` | `uuid`              | YES      | —            | **FK → `patients.id`** (nullable until patient is identified).           |
+| `phone`      | `text`              | NO       | —            | Phone number of the conversation participant.                            |
+| `channel`    | `conversation_channel`| NO     | `whatsapp`   | `whatsapp`, `web`, or `app`.                                             |
+| `status`     | `conversation_status`| NO      | `active`     | `active`, `ended`, or `archived`.                                        |
+| `action_type`| `text`              | YES      | `'chat'`     | Type of action being performed (e.g. "chat", "triage", "booking").       |
+| `agent_used` | `text`              | YES      | —            | Name of the AI agent handling the conversation.                          |
+| `message_count`| `integer`         | NO       | `0`          | Number of messages in this conversation.                                 |
+| `summary`    | `text`              | YES      | —            | AI-generated summary of the conversation.                                |
+| `risk_level` | `text`              | YES      | `'none'`     | Risk assessment level (e.g. "none", "low", "medium", "high").            |
+| `risk_score` | `integer`           | YES      | `0`          | 0–100 risk score (derived from conversation).                            |
+| `metadata`   | `jsonb`             | YES      | `'{}'`       | Flexible metadata storage for additional context.                        |
+| `started_at` | `timestamptz`       | NO       | `now()`      | When the conversation started.                                           |
+| `ended_at`   | `timestamptz`       | YES      | —            | When the conversation ended (null if ongoing).                           |
+| `created_at` | `timestamptz`       | NO       | `now()`      | Creation timestamp.                                                       |
+| `updated_at` | `timestamptz`       | NO       | `now()`      | Last update timestamp (auto-updated via trigger).                        |
+
+**Indexes / Constraints**
+- PK: `id`
+- UNIQUE: `thread_id`
+- FK: `patient_id` → `patients.id` (on delete set null)
+- CHECK: `risk_score IS NULL OR (risk_score >= 0 AND risk_score <= 100)`
+- Indexes:
+  - `thread_id`
+  - `patient_id`
+  - `phone`
+  - `status`
+  - `started_at` (descending)
+  - Partial UNIQUE on `(phone)` where `status = 'active'` (only one active conversation per phone)
+
+---
+
+### 2.12 `messages`
+
+Individual messages within AI conversations.
+
+| Column           | Type          | Nullable | Default      | Constraints / Notes                                           |
+|-----------------|---------------|----------|--------------|---------------------------------------------------------------|
+| `id`            | `uuid`        | NO       | random uuid  | **PK**.                                                       |
+| `conversation_id`| `uuid`       | NO       | —            | **FK → `conversations.id`**.                                  |
+| `external_id`   | `text`        | YES      | —            | External message ID from messaging platform (e.g. WhatsApp). |
+| `role`          | `message_role`| NO       | —            | `user`, `assistant`, or `system`.                            |
+| `content`       | `text`        | NO       | —            | Message content/text.                                         |
+| `agent_used`    | `text`        | YES      | —            | AI agent that generated the message (if assistant).          |
+| `metadata`      | `jsonb`       | YES      | `'{}'`       | Additional metadata (attachments, timestamps, etc).          |
+| `created_at`    | `timestamptz` | NO       | `now()`      | Creation timestamp.                                           |
+
+**Indexes / Constraints**
+- PK: `id`
+- FK: `conversation_id` → `conversations.id` (on delete cascade)
+- Indexes:
+  - `conversation_id`
+  - `created_at` (descending)
+  - `role`
+
+---
+
+### 2.13 `memberships`
 
 Patient membership/subscription management. Tracks active, paused, cancelled, and expired memberships.
 
@@ -321,7 +402,7 @@ Patient membership/subscription management. Tracks active, paused, cancelled, an
 
 ---
 
-### 2.12 `membership_payments`
+### 2.14 `membership_payments`
 
 Payment history for memberships (separate from appointment payments).
 
@@ -352,7 +433,7 @@ Payment history for memberships (separate from appointment payments).
 
 ---
 
-### 2.13 `staff_activity_log`
+### 2.15 `staff_activity_log`
 
 Audit log tracking staff actions for compliance and monitoring. Logs user management, payment views, and membership operations.
 
@@ -378,7 +459,7 @@ Audit log tracking staff actions for compliance and monitoring. Logs user manage
 
 ---
 
-### 2.14 `patient_doctors`
+### 2.16 `patient_doctors`
 
 Join table to model an explicit **many-to-many** relationship between patients and doctors (e.g. assigned care team, historical relationships).
 
@@ -415,12 +496,16 @@ Join table to model an explicit **many-to-many** relationship between patients a
 - `users` 1 — 1 `staff` (for users that are staff members)
 - `patients` 1 — N `appointments`
 - `doctors` 1 — N `appointments`
+- `conversations` 1 — N `appointments` (optional, tracks which conversation created the appointment)
 - `appointments` 1 — N `paraclinics`
 - `appointments` 1 — N `plans`
 - `appointments` 1 — 1 `payments`
-- `patients` 1 — N `followings` (optionally linked to an `appointment`)
+- `patients` 1 — N `followings` (optionally linked to an `appointment` and/or `conversation`)
+- `conversations` 1 — N `followings` (optional, tracks which conversation created the following)
 - `patients` 1 — N `patient_timeline_events`
 - `patients` 1 — N `memberships`
+- `patients` 1 — N `conversations`
+- `conversations` 1 — N `messages`
 - `memberships` 1 — N `membership_payments`
 - `staff` 1 — N `staff_activity_log`
 - `staff` 1 — N `membership_payments` (as processor)
