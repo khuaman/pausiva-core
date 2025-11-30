@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Calendar, Clock, AlertCircle, Edit2, Loader2, Upload, FileText, Eye } from 'lucide-react';
+import { Calendar, Clock, AlertCircle, Edit2, Loader2, Upload, FileText, Eye, MessageCircle } from 'lucide-react';
+import { ContactAgentModal } from '@/components/ContactAgentModal';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAppointments } from '@/hooks/use-appointments';
@@ -61,6 +62,14 @@ export default function Citas() {
   const [planDescription, setPlanDescription] = useState('');
   const [planStartDate, setPlanStartDate] = useState('');
   const [planEndDate, setPlanEndDate] = useState('');
+  
+  // Contact agent modal state
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [selectedPatientForContact, setSelectedPatientForContact] = useState<{
+    id: string;
+    name: string;
+    phone: string | null;
+  } | null>(null);
 
   const statusClassMap: Record<AppointmentStatus, string> = {
     scheduled: 'bg-white text-primary border-primary',
@@ -223,6 +232,37 @@ export default function Citas() {
     setPlanDescription('');
     setPlanStartDate('');
     setPlanEndDate('');
+  };
+
+  const handleOpenContactModal = async (appointment: ApiAppointmentSummary) => {
+    try {
+      // Fetch the patient details to get phone number
+      const response = await fetch(`/api/users/patients?id=${appointment.patient.id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch patient details');
+      }
+      const data = await response.json();
+      // API returns an array, get the first patient
+      const patient = data.data[0];
+      
+      if (!patient) {
+        throw new Error('Patient not found');
+      }
+      
+      setSelectedPatientForContact({
+        id: patient.id,
+        name: patient.profile.fullName,
+        phone: patient.profile.phone,
+      });
+      setContactModalOpen(true);
+    } catch (error) {
+      console.error('[handleOpenContactModal] Error:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo obtener la información del paciente.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -503,6 +543,22 @@ export default function Citas() {
                           </TooltipTrigger>
                           <TooltipContent>
                             <p>Cambiar estado de la cita</p>
+                          </TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleOpenContactModal(apt)}
+                              className="h-8 w-8 p-0 text-primary hover:text-primary hover:bg-primary/10"
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Realizar checkeo diario del paciente</p>
                           </TooltipContent>
                         </Tooltip>
                       </div>
@@ -888,6 +944,17 @@ export default function Citas() {
         </Tabs>
         </section>
       </main>
+
+      {/* Contact Agent Modal */}
+      {selectedPatientForContact && (
+        <ContactAgentModal
+          open={contactModalOpen}
+          onOpenChange={setContactModalOpen}
+          patientId={selectedPatientForContact.id}
+          patientName={selectedPatientForContact.name}
+          patientPhone={selectedPatientForContact.phone}
+        />
+      )}
     </div>
   );
 }
