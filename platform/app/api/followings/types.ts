@@ -12,6 +12,7 @@ export type SupabaseFollowingRow = {
   summary: string | null;
   severity_score: number | null;
   is_urgent: boolean;
+  conversation_id: string | null;
   created_at: string;
   appointment?: {
     id: string;
@@ -34,6 +35,7 @@ export type ApiFollowing = {
   summary: string | null;
   severityScore: number | null;
   isUrgent: boolean;
+  conversationId: string | null;
   createdAt: string;
   appointment:
     | {

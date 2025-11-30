@@ -17,6 +17,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ConversationModal } from '@/components/ConversationModal';
 import { usePatients } from '@/hooks/use-patients';
 import { useAppointments } from '@/hooks/use-appointments';
 import { useFollowings } from '@/hooks/use-followings';
@@ -145,6 +146,8 @@ export default function PatientDetailPage() {
   const { toast } = useToast();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [conversationModalOpen, setConversationModalOpen] = useState(false);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
 
   // Fetch all patient-related data
   const { patients, loading: loadingPatient, error: errorPatient } = usePatients({ id: patientId });
@@ -155,6 +158,11 @@ export default function PatientDetailPage() {
 
   const patient = patients[0];
   const loading = loadingPatient || loadingAppointments || loadingFollowings || loadingPlans || loadingParaclinics;
+
+  const handleViewConversation = (conversationId: string) => {
+    setSelectedConversationId(conversationId);
+    setConversationModalOpen(true);
+  };
 
   const handleDeletePatient = async () => {
     setIsDeleting(true);
@@ -244,6 +252,18 @@ export default function PatientDetailPage() {
   // Get appointment type label
   const getAppointmentTypeLabel = (type: string) => {
     return type === 'pre_consulta' ? 'Descubrimiento' : 'Consulta';
+  };
+
+  // Get following type label in Spanish
+  const getFollowingTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      emotional: 'Emocional',
+      symptoms: 'Síntomas',
+      medications: 'Medicamentos',
+      business: 'Negocio',
+      other: 'Otro',
+    };
+    return labels[type] || type;
   };
 
   if (errorPatient) {
@@ -482,7 +502,7 @@ export default function PatientDetailPage() {
                         {format(new Date(following.contactedAt), "PPP", { locale: es })}
                       </td>
                       <td className="px-4 py-4 text-sm text-muted-foreground">
-                        {following.type.replace(/_/g, ' ')}
+                        {getFollowingTypeLabel(following.type)}
                         {following.summary && (
                           <span className="block text-xs mt-1 line-clamp-1">{following.summary}</span>
                         )}
@@ -598,7 +618,7 @@ export default function PatientDetailPage() {
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-2">
                             <MessageSquare className={`h-4 w-4 ${following.isUrgent ? 'text-destructive' : 'text-blue-500'}`} />
-                            <span className="font-medium capitalize">{following.type.replace(/_/g, ' ')}</span>
+                            <span className="font-medium">{getFollowingTypeLabel(following.type)}</span>
                             {following.isUrgent && (
                               <Badge variant="destructive" className="ml-2">Urgente</Badge>
                             )}
@@ -626,15 +646,24 @@ export default function PatientDetailPage() {
                           )}
                         </td>
                         <td className="px-4 py-4">
-                          {following.transcriptUrl ? (
-                            <Button variant="outline" size="sm" asChild>
-                              <a href={following.transcriptUrl} target="_blank" rel="noopener noreferrer">
-                                Ver Transcripción
-                              </a>
-                            </Button>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">-</span>
-                          )}
+                          <div className="flex gap-2">
+                            {following.conversationId && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleViewConversation(following.conversationId!)}
+                              >
+                                Ver Conversación
+                              </Button>
+                            )}
+                            {following.transcriptUrl && (
+                              <Button variant="outline" size="sm" asChild>
+                                <a href={following.transcriptUrl} target="_blank" rel="noopener noreferrer">
+                                  Ver Transcripción
+                                </a>
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -766,6 +795,13 @@ export default function PatientDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Conversation Modal */}
+      <ConversationModal
+        open={conversationModalOpen}
+        onOpenChange={setConversationModalOpen}
+        conversationId={selectedConversationId}
+      />
     </div>
   );
 }
