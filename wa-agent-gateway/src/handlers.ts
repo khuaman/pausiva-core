@@ -250,9 +250,10 @@ async function handleButtonReply(chatId: string, buttonId: string): Promise<void
 /**
  * Handle proactive messages from the platform (POST /api/send-message)
  * Allows the management system to send messages to patients via WhatsApp
+ * 
+ * This endpoint is async - returns 202 Accepted immediately and processes in background
  */
-export async function handleProactiveMessage(req: Request, res: Response): Promise<void> {
-  // Validate API key for authentication
+export function handleProactiveMessage(req: Request, res: Response): void {
   const apiKey = req.headers["x-api-key"];
   const expectedApiKey = process.env.PLATFORM_API_KEY;
 
@@ -279,27 +280,29 @@ export async function handleProactiveMessage(req: Request, res: Response): Promi
 
   console.log(`📤 Proactive message request for ${phone} (source: ${metadata?.source || "manual"})`);
 
-  try {
-    const result = await sendProactiveMessage({
-      phone,
-      message,
-      messageType: message_type,
-      buttons,
-      metadata,
-    });
+  // Return 202 Accepted immediately - message will be processed in background
+  res.status(202).json({
+    accepted: true,
+    message: "Message queued for delivery",
+    phone,
+  });
 
-    if (result.success) {
-      console.log(`✅ Proactive message sent to ${phone}`);
-      res.status(200).json(result);
-    } else {
-      console.error(`❌ Failed to send proactive message to ${phone}:`, result.error);
-      res.status(500).json(result);
-    }
-  } catch (error) {
-    console.error(`❌ Error sending proactive message to ${phone}:`, error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+  // Process message in background (fire and forget)
+  sendProactiveMessage({
+    phone,
+    message,
+    messageType: message_type,
+    buttons,
+    metadata,
+  })
+    .then((result) => {
+      if (result.success) {
+        console.log(`✅ Proactive message sent to ${phone}`);
+      } else {
+        console.error(`❌ Failed to send proactive message to ${phone}:`, result.error);
+      }
+    })
+    .catch((error) => {
+      console.error(`❌ Error sending proactive message to ${phone}:`, error);
     });
-  }
 }
