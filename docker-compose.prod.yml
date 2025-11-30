@@ -1,0 +1,90 @@
+# ============================================
+# Pausiva Core - Production Deployment
+# ============================================
+# Both services in one compose, ai-multiagent is internal only
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Services:
+#   - wa-agent-gateway: WhatsApp webhook (port 3000, exposed for Caddy)
+#   - ai-multiagent: FastAPI AI service (internal only)
+#   - redis: Session storage (internal only)
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: pausiva-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pausiva-network
+
+  ai-multiagent:
+    build:
+      context: ./ai-multiagent
+      dockerfile: Dockerfile
+    container_name: pausiva-ai-multiagent
+    restart: unless-stopped
+    # NO ports exposed - internal only!
+    env_file:
+      - ./ai-multiagent/.env
+    environment:
+      - ENVIRONMENT=production
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8099/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - pausiva-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  wa-agent-gateway:
+    build:
+      context: ./wa-agent-gateway
+      dockerfile: Dockerfile.prod
+    container_name: pausiva-wa-gateway
+    restart: unless-stopped
+    ports:
+      - "3000:3000"  # Exposed for Caddy reverse proxy
+    env_file:
+      - ./wa-agent-gateway/.env
+    environment:
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379
+      - FASTAPI_URL=http://ai-multiagent:8099
+    depends_on:
+      redis:
+        condition: service_healthy
+      ai-multiagent:
+        condition: service_healthy
+    networks:
+      - pausiva-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  redis_data:
+
+networks:
+  pausiva-network:
+    driver: bridge
+
