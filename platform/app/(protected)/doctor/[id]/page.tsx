@@ -37,9 +37,11 @@ import {
   GraduationCap,
   IdCard,
   Trash2,
+  MessageCircle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { ContactAgentModal } from '@/components/ContactAgentModal';
 
 export default function DoctorDetailPage() {
   const params = useParams();
@@ -48,6 +50,12 @@ export default function DoctorDetailPage() {
   const { toast } = useToast();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [selectedPatientForContact, setSelectedPatientForContact] = useState<{
+    id: string;
+    name: string;
+    phone: string | null;
+  } | null>(null);
 
   // Fetch doctor and their appointments
   const { doctors, loading: loadingDoctor, error: errorDoctor } = useDoctors({ id: doctorId });
@@ -102,6 +110,37 @@ export default function DoctorDetailPage() {
     } finally {
       setIsDeleting(false);
       setShowDeleteDialog(false);
+    }
+  };
+
+  const handleOpenContactModal = async (patientId: string, patientName: string) => {
+    try {
+      // Fetch the patient details to get phone number
+      const response = await fetch(`/api/users/patients?id=${patientId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch patient details');
+      }
+      const data = await response.json();
+      // API returns an array, get the first patient
+      const patient = data.data[0];
+      
+      if (!patient) {
+        throw new Error('Patient not found');
+      }
+      
+      setSelectedPatientForContact({
+        id: patient.id,
+        name: patient.profile.fullName,
+        phone: patient.profile.phone,
+      });
+      setContactModalOpen(true);
+    } catch (error) {
+      console.error('[handleOpenContactModal] Error:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo obtener la información del paciente.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -524,9 +563,20 @@ export default function DoctorDetailPage() {
                           </Badge>
                         </td>
                         <td className="px-4 py-4">
-                          <Button variant="outline" size="sm">
-                            Ver Detalles
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenContactModal(appointment.patient.id, appointment.patient.fullName)}
+                              className="gap-2"
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                              Checkeo
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              Ver Detalles
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -773,6 +823,17 @@ export default function DoctorDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Contact Agent Modal */}
+      {selectedPatientForContact && (
+        <ContactAgentModal
+          open={contactModalOpen}
+          onOpenChange={setContactModalOpen}
+          patientId={selectedPatientForContact.id}
+          patientName={selectedPatientForContact.name}
+          patientPhone={selectedPatientForContact.phone}
+        />
+      )}
     </div>
   );
 }
