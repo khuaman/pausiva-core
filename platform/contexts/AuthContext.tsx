@@ -1,6 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createClient } from '@/utils/supabase/client';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 
 export type UserRole = 'admin' | 'doctor' | 'paciente';
 
@@ -21,62 +23,104 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock users para demostración
-const mockUsers: Record<string, User & { password: string }> = {
-  'admin@pausiva.com': {
-    id: '1',
-    name: 'Admin Pausiva',
-    email: 'admin@pausiva.com',
-    role: 'admin',
-    password: 'admin123',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
-  },
-  'doctor@pausiva.com': {
-    id: '2',
-    name: 'Dra. María González',
-    email: 'doctor@pausiva.com',
-    role: 'doctor',
-    password: 'doctor123',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=doctor',
-  },
-  'paciente@pausiva.com': {
-    id: '3',
-    name: 'Carmen López',
-    email: 'paciente@pausiva.com',
-    role: 'paciente',
-    password: 'paciente123',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=carmen',
-  },
-};
+// Helper to map Supabase user to our User interface
+function mapSupabaseUser(supabaseUser: SupabaseUser): User {
+  const metadata = supabaseUser.user_metadata || {};
+  const role = metadata.role as UserRole || 'paciente';
+  
+  return {
+    id: supabaseUser.id,
+    name: metadata.full_name || supabaseUser.email?.split('@')[0] || 'User',
+    email: supabaseUser.email || '',
+    role,
+    avatar: metadata.picture_url || metadata.avatar_url,
+  };
+}
+
+// Mock user for development bypass
+function getMockDevUser(): User | null {
+  const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true';
+  if (!bypassAuth) return null;
+
+  const role = (process.env.NEXT_PUBLIC_DEV_USER_ROLE as UserRole) || 'doctor';
+  
+  return {
+    id: 'dev-user-id',
+    name: 'Dev User',
+    email: 'dev@pausiva.com',
+    role,
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=dev',
+  };
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const supabase = createClient();
 
   useEffect(() => {
-    // Check if user is stored in localStorage
-    const storedUser = localStorage.getItem('pausiva_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    // Development bypass: skip auth if enabled
+    const mockUser = getMockDevUser();
+    if (mockUser) {
+      console.warn('⚠️ AUTH BYPASS ENABLED - Using mock user for development');
+      setUser(mockUser);
+      setIsLoading(false);
+      return;
     }
-    setIsLoading(false);
-  }, []);
+
+    // Check active session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(mapSupabaseUser(session.user));
+      }
+      setIsLoading(false);
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser(mapSupabaseUser(session.user));
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase]);
 
   const login = async (email: string, password: string) => {
-    const mockUser = mockUsers[email.toLowerCase()];
-    
-    if (!mockUser || mockUser.password !== password) {
-      throw new Error('Credenciales inválidas');
+    // Bypass auth in development if enabled
+    const mockUser = getMockDevUser();
+    if (mockUser) {
+      setUser(mockUser);
+      return;
     }
 
-    const { password: _, ...userWithoutPassword } = mockUser;
-    setUser(userWithoutPassword);
-    localStorage.setItem('pausiva_user', JSON.stringify(userWithoutPassword));
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (data.user) {
+      setUser(mapSupabaseUser(data.user));
+    }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Bypass auth in development if enabled
+    if (getMockDevUser()) {
+      setUser(null);
+      return;
+    }
+
+    await supabase.auth.signOut();
     setUser(null);
-    localStorage.removeItem('pausiva_user');
   };
 
   return (

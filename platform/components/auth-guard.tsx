@@ -15,8 +15,17 @@ export const AuthGuard = ({ children, allowedRoles }: AuthGuardProps) => {
   const pathname = usePathname();
   const [isAuthorized, setIsAuthorized] = useState(false);
 
+  // Check if auth bypass is enabled
+  const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true';
+
   useEffect(() => {
     if (isLoading) return;
+
+    // Skip auth checks if bypass is enabled
+    if (bypassAuth) {
+      setIsAuthorized(true);
+      return;
+    }
 
     if (!user) {
       router.push("/login");
@@ -36,7 +45,7 @@ export const AuthGuard = ({ children, allowedRoles }: AuthGuardProps) => {
     }
 
     setIsAuthorized(true);
-  }, [user, isLoading, router, allowedRoles, pathname]);
+  }, [user, isLoading, router, allowedRoles, pathname, bypassAuth]);
 
   if (isLoading || !isAuthorized) {
     return (
