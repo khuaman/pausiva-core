@@ -1,7 +1,13 @@
 import { whatsappClient } from "./lib/whatsapp";
-import { getLangGraphClient, getAssistantId, isLangGraphConfigured } from "./lib/langgraph";
 import { isFastAPIConfigured, sendMessage, sendCheckin, type FastAPIMessageResponse } from "./lib/fastapi";
-import { v4 as uuidv4 } from "uuid";
+import {
+  getOrCreateConversation,
+  getUserByPhone,
+  saveMessage,
+  updateConversation,
+  setActionType,
+  getActionType,
+} from "./lib/storage";
 
 type ActionType = "chat" | "process_data" | "query_data";
 
@@ -9,140 +15,125 @@ type ActionType = "chat" | "process_data" | "query_data";
  * Start a new conversation thread
  */
 export async function startThread(chatId: string): Promise<string> {
-  // Option 1: Use FastAPI (preferred)
-  if (isFastAPIConfigured()) {
-    try {
-      const threadId = uuidv4();
-      const response = await sendCheckin({
-        thread_id: threadId,
-        phone: chatId,
-      });
-
-      await sendWelcomeMessage(chatId, response.reply_text);
-      return threadId;
-    } catch (error) {
-      console.error("❌ FastAPI error, trying LangGraph fallback:", error);
-    }
+  if (!isFastAPIConfigured()) {
+    throw new Error("FASTAPI_URL environment variable is not set");
   }
 
-  // Option 2: Use LangGraph SDK
-  if (isLangGraphConfigured()) {
-    try {
-      const client = await getLangGraphClient();
-      if (client) {
-        // Create thread in LangGraph
-        const thread = await client.threads.create();
-        const threadId = thread.thread_id;
+  // Get or create conversation in database
+  const { conversation, isNew } = await getOrCreateConversation(chatId);
+  const threadId = conversation.threadId;
 
-        // Initialize with welcome message
-        const assistantId = getAssistantId();
-        const streamResponse = client.runs.stream(threadId, assistantId, {
-          input: {
-            uuid: threadId,
-            user_input: "",
-            action_type: "chat",
-          },
-        });
+  // Get user_id if user exists
+  const user = await getUserByPhone(chatId);
+  const userId = user?.id;
 
-        // Process welcome message
-        for await (const chunk of streamResponse) {
-          if (chunk.event === "values" && chunk.data.output) {
-            await sendWelcomeMessage(chatId, chunk.data.output as string);
-          }
-        }
-
-        return threadId;
-      }
-    } catch (error) {
-      console.error("❌ LangGraph error, falling back to local:", error);
-    }
+  if (isNew) {
+    console.log(`🆕 New conversation created: ${threadId} for ${chatId}`);
+  } else {
+    console.log(`🔄 Reusing conversation: ${threadId} for ${chatId}`);
   }
 
-  // Fallback: Generate local thread ID and send default welcome
-  const threadId = uuidv4();
-  await sendWelcomeMessage(
-    chatId,
-    "👋 Hola!\n\nEs un placer ayudarte. ¿Qué te gustaría hacer?"
-  );
+  // Call FastAPI checkin endpoint
+  const response = await sendCheckin({
+    thread_id: threadId,
+    phone: chatId,
+    user_id: userId,
+  });
+
+  // Save the assistant's welcome message
+  await saveMessage(conversation.id, response.reply_text, "assistant", {
+    agentUsed: response.agent_used || undefined,
+  });
+
+  // Update conversation with agent info
+  await updateConversation(threadId, {
+    agentUsed: response.agent_used || undefined,
+    riskLevel: response.risk_level,
+    riskScore: response.risk_score,
+  });
+
+  // Send welcome message with buttons
+  await sendWelcomeMessage(chatId, response);
+  
   return threadId;
 }
 
 /**
  * Send welcome message with action buttons
+ * Uses AI-generated text with optional dynamic buttons from response
  */
-async function sendWelcomeMessage(chatId: string, text: string): Promise<void> {
-  await whatsappClient.sendButtons(chatId, text, [
-    { id: "action_process", title: "📝 Agendar Cita" },
-    { id: "action_query", title: "🔍 Consultar Datos" },
-    { id: "action_help", title: "❓ Obtener Ayuda" },
-  ]);
+async function sendWelcomeMessage(chatId: string, response: FastAPIMessageResponse): Promise<void> {
+  // Check if response includes predefined actions/buttons
+  const hasActions = response.actions && response.actions.length > 0;
+
+  if (hasActions) {
+    // Map actions to buttons (max 3 for WhatsApp)
+    const buttons = response.actions.slice(0, 3).map((action, index) => ({
+      id: `action_${index}`,
+      title: action.slice(0, 20), // WhatsApp button title limit
+    }));
+    await whatsappClient.sendButtons(chatId, response.reply_text, buttons);
+  } else {
+    // Default buttons when no specific actions provided
+    await whatsappClient.sendButtons(chatId, response.reply_text, [
+      { id: "action_process", title: "📝 Agendar Cita" },
+      { id: "action_query", title: "🔍 Consultar Datos" },
+      { id: "action_help", title: "❓ Obtener Ayuda" },
+    ]);
+  }
 }
 
 /**
- * Stream a conversation turn through the multi-agent system
+ * Stream a conversation turn through the FastAPI multi-agent system
  */
 export async function runAndStream({
   chatId,
   threadId,
   userInput = "",
   actionType = "chat",
+  userId,
 }: {
   chatId: string;
   threadId: string;
   userInput?: string;
   actionType?: ActionType;
+  userId?: string;
 }): Promise<void> {
-  // Option 1: Use FastAPI (preferred)
-  if (isFastAPIConfigured()) {
-    try {
-      const response = await sendMessage({
-        thread_id: threadId,
-        phone: chatId,
-        message: userInput,
-      });
-
-      await handleFastAPIResponse({ chatId, response });
-      return;
-    } catch (error) {
-      console.error("❌ FastAPI streaming error, trying LangGraph:", error);
-    }
+  if (!isFastAPIConfigured()) {
+    throw new Error("FASTAPI_URL environment variable is not set");
   }
 
-  // Option 2: Use LangGraph SDK
-  if (isLangGraphConfigured()) {
-    try {
-      const client = await getLangGraphClient();
-      if (client) {
-        const assistantId = getAssistantId();
-        const streamResponse = client.runs.stream(threadId, assistantId, {
-          input: {
-            uuid: threadId,
-            user_input: userInput,
-            action_type: actionType,
-          },
-          streamMode: "updates",
-        });
+  // Get conversation to save messages
+  const { conversation } = await getOrCreateConversation(chatId);
 
-        // Collect all chunks
-        const chunks: unknown[] = [];
-        for await (const chunk of streamResponse) {
-          chunks.push(chunk.data);
-        }
-
-        // Process chunks based on agent outputs
-        await handleChunks({ chatId, actionType, chunks });
-        return;
-      }
-    } catch (error) {
-      console.error("❌ LangGraph streaming error:", error);
-    }
+  // Save user message
+  if (userInput) {
+    await saveMessage(conversation.id, userInput, "user");
   }
 
-  // Fallback: Echo response for testing without any AI backend
-  await whatsappClient.sendTextMessage(
-    chatId,
-    `🤖 Modo eco (sin backend AI configurado)\n\nDijiste: "${userInput}"\nAcción: ${actionType}`
-  );
+  // Send to FastAPI
+  const response = await sendMessage({
+    thread_id: threadId,
+    phone: chatId,
+    message: userInput,
+    user_id: userId,
+  });
+
+  // Save assistant response
+  await saveMessage(conversation.id, response.reply_text, "assistant", {
+    agentUsed: response.agent_used || undefined,
+  });
+
+  // Update conversation metadata
+  await updateConversation(threadId, {
+    agentUsed: response.agent_used || undefined,
+    riskLevel: response.risk_level,
+    riskScore: response.risk_score,
+    messageCount: conversation.messageCount + 2, // user + assistant
+  });
+
+  // Handle the response
+  await handleFastAPIResponse({ chatId, response });
 }
 
 /**
@@ -182,42 +173,5 @@ async function handleFastAPIResponse({
   }
 }
 
-/**
- * Process streaming chunks from multi-agent system (LangGraph)
- */
-async function handleChunks({
-  chatId,
-  actionType,
-  chunks,
-}: {
-  chatId: string;
-  actionType: ActionType;
-  chunks: unknown[];
-}): Promise<void> {
-  for (const chunk of chunks) {
-    const data = chunk as Record<string, Record<string, unknown>>;
-
-    // Handle text output from any agent
-    const output = data[actionType]?.output;
-    if (output && typeof output === "string") {
-      await whatsappClient.sendTextMessage(chatId, output);
-    }
-
-    // Handle structured data from processor agent
-    const parsedData = data.parse_data?.parsed_data;
-    if (parsedData) {
-      // TODO: Validate with Zod and insert to database
-      console.log("📊 Parsed data:", parsedData);
-      await whatsappClient.sendTextMessage(
-        chatId,
-        "✅ ¡Cita agendada exitosamente!"
-      );
-    }
-
-    // Handle query results from SQL agent
-    const queryOutput = data.format_results?.output;
-    if (queryOutput && typeof queryOutput === "string") {
-      await whatsappClient.sendTextMessage(chatId, queryOutput);
-    }
-  }
-}
+// Re-export storage functions for use in handlers
+export { getActionType, setActionType, getUserByPhone } from "./lib/storage";

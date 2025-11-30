@@ -1,8 +1,7 @@
 /**
  * FastAPI client for Pausiva AI Multiagent
  *
- * This module calls the ai-multiagent FastAPI endpoint directly
- * instead of going through LangGraph SDK.
+ * This module calls the ai-multiagent FastAPI endpoint directly.
  */
 
 export interface FastAPIMessageRequest {
@@ -10,6 +9,14 @@ export interface FastAPIMessageRequest {
   message_id?: string;
   phone: string;
   message: string;
+  user_id?: string; // Optional user ID for authenticated users
+}
+
+export interface FastAPICheckinRequest {
+  thread_id: string;
+  message_id?: string;
+  phone: string;
+  user_id?: string; // Optional user ID for authenticated users
 }
 
 export interface FastAPIMessageResponse {
@@ -72,11 +79,9 @@ export async function sendMessage(
 /**
  * Send a check-in message to start a conversation
  */
-export async function sendCheckin(request: {
-  thread_id: string;
-  message_id?: string;
-  phone: string;
-}): Promise<FastAPIMessageResponse> {
+export async function sendCheckin(
+  request: FastAPICheckinRequest
+): Promise<FastAPIMessageResponse> {
   const baseUrl = getFastAPIUrl();
   if (!baseUrl) {
     throw new Error("FASTAPI_URL environment variable is not set");
@@ -99,4 +104,3 @@ export async function sendCheckin(request: {
 
   return response.json() as Promise<FastAPIMessageResponse>;
 }
-
