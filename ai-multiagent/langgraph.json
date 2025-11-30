@@ -1,10 +1,9 @@
 {
   "dockerfile_lines": [],
   "graphs": {
-    "pausiva_chat": "./app/chat/orchestrator.py:graph"
+    "pausiva_chat": "app.chat.orchestrator:graph"
   },
   "env": ".env",
   "python_version": "3.12",
-  "dependencies": ["pyproject.toml"]
+  "dependencies": [".", "pyproject.toml"]
 }
-

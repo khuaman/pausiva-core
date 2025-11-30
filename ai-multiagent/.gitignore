@@ -7,3 +7,6 @@
 
 # Tests
 tests/*.py
+
+# LangGraph
+.langgraph_api

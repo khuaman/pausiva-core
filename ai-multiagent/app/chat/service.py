@@ -1,5 +1,8 @@
 """Business logic for the chat service."""
+from typing import TYPE_CHECKING
+
 from langchain_core.messages import AIMessage, HumanMessage
+from langgraph.graph.state import CompiledStateGraph
 
 from app.models import AgentResponse, RiskLevel
 from app.shared.database import PatientRepository
@@ -7,13 +10,18 @@ from app.shared.database import PatientRepository
 from .agents import generate_checkin_prompt
 from .core.schemas import InputState, PatientContextData
 from .core.types import MessageCategory
-from .orchestrator import graph
+
+if TYPE_CHECKING:
+    from langgraph.checkpoint.base import BaseCheckpointSaver
 
 
 class ChatService:
-    """Service for processing chat messages."""
+    """Service for processing chat messages with conversation memory."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        graph: CompiledStateGraph,
+    ):
         self.graph = graph
         self.patient_repo = PatientRepository()
 
@@ -22,7 +30,7 @@ class ChatService:
         Process an incoming message from a patient.
 
         Args:
-            phone: Patient phone number
+            phone: Patient phone number (used as thread_id for memory)
             message: Message content
 
         Returns:
@@ -38,14 +46,20 @@ class ChatService:
             category=MessageCategory.GENERAL,
         )
 
-        # Run the graph
+        # Run the graph with thread_id for conversation memory
+        # The phone number serves as the unique thread identifier
         result = await self.graph.ainvoke(
             {
                 "messages": input_state.messages,
                 "phone_number": phone,
                 "category": MessageCategory.GENERAL,
                 "patient_context": patient_context,
-            }
+            },
+            config={
+                "configurable": {"thread_id": phone},
+                "run_name": "Pausiva Chat",
+                "tags": ["whatsapp", "patient"],
+            },
         )
 
         # Extract the response
@@ -119,13 +133,4 @@ class ChatService:
             recent_symptoms=[],  # TODO: Load from storage
             conversation_summary="",
         )
-
-
-# Global service instance
-chat_service = ChatService()
-
-
-def get_chat_service() -> ChatService:
-    """Get the chat service instance."""
-    return chat_service
 

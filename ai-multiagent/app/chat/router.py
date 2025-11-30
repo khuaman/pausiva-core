@@ -1,8 +1,10 @@
 """FastAPI router for the chat API."""
+
 from fastapi import APIRouter, HTTPException
 
 from app.shared.config import get_settings
 
+from .dependencies import ChatServiceDep
 from .schemas import (
     CheckinRequest,
     ContextResponse,
@@ -10,24 +12,28 @@ from .schemas import (
     MessageResponse,
     StorageStatusResponse,
 )
-from .service import get_chat_service
 
 router = APIRouter(tags=["Chat"])
 
 
 @router.post("/message", response_model=MessageResponse)
-async def process_message(request: MessageRequest) -> MessageResponse:
+async def process_message(
+    request: MessageRequest,
+    service: ChatServiceDep,
+) -> MessageResponse:
     """
     Process a message from a patient.
 
+    The phone number is used as the thread_id for conversation memory,
+    allowing the AI to remember context from previous messages.
+
     Args:
         request: Message request with phone and message
+        service: Injected chat service with checkpointer
 
     Returns:
         MessageResponse with the reply and metadata
     """
-    service = get_chat_service()
-
     try:
         response = await service.process_message(request.phone, request.message)
         return MessageResponse(
@@ -46,18 +52,20 @@ async def process_message(request: MessageRequest) -> MessageResponse:
 
 
 @router.post("/checkin", response_model=MessageResponse)
-async def send_checkin(request: CheckinRequest) -> MessageResponse:
+async def send_checkin(
+    request: CheckinRequest,
+    service: ChatServiceDep,
+) -> MessageResponse:
     """
     Send a proactive check-in message to a patient.
 
     Args:
         request: Check-in request with phone number
+        service: Injected chat service
 
     Returns:
         MessageResponse with the check-in message
     """
-    service = get_chat_service()
-
     try:
         response = await service.send_checkin(request.phone)
         return MessageResponse(
@@ -72,18 +80,20 @@ async def send_checkin(request: CheckinRequest) -> MessageResponse:
 
 
 @router.get("/context/{phone}", response_model=ContextResponse)
-async def get_context(phone: str) -> ContextResponse:
+async def get_context(
+    phone: str,
+    service: ChatServiceDep,
+) -> ContextResponse:
     """
     Get the context for a patient.
 
     Args:
         phone: Patient phone number
+        service: Injected chat service
 
     Returns:
         ContextResponse with patient context
     """
-    service = get_chat_service()
-
     try:
         context = service.get_patient_context(phone)
         return ContextResponse(**context)
@@ -112,4 +122,3 @@ async def get_storage_status() -> StorageStatusResponse:
         supabase_configured=settings.supabase_configured,
         supabase_url=masked_url,
     )
-

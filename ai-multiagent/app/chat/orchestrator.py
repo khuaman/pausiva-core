@@ -164,5 +164,6 @@ graph_builder.add_edge("checkin", END)
 graph_builder.add_edge("greeting", END)
 graph_builder.add_edge("general", END)
 
-# Compile the graph
+# Compile the graph for LangGraph Studio (without checkpointer)
+# For FastAPI runtime, we compile with checkpointer in lifespan.py
 graph = graph_builder.compile(name="pausiva_chat")

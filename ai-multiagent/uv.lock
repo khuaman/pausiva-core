@@ -10,7 +10,7 @@ resolution-markers = [
 [[package]]
 name = "ai-multiagent"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "langchain-core" },
@@ -28,6 +28,11 @@ dev = [
     { name = "ruff" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "langgraph-cli", extra = ["inmem"] },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.122.0" },
@@ -42,6 +47,9 @@ requires-dist = [
     { name = "supabase", specifier = ">=2.0.0" },
 ]
 provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "langgraph-cli", extras = ["inmem"], specifier = ">=0.4.7" }]
 
 [[package]]
 name = "annotated-doc"
