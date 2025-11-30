@@ -5,9 +5,21 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { AdminCreateMenu } from './AdminCreateMenu';
 import Image from 'next/image';
+import { useState } from 'react';
 
 export const Sidebar = () => {
   const { user, logout } = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout failed:', error);
+      setIsLoggingOut(false);
+    }
+  };
 
   const getNavItems = () => {
     // Staff users (admin, support, billing, operations) get full access
@@ -86,12 +98,13 @@ export const Sidebar = () => {
           </div>
         </div>
         <Button
-          onClick={logout}
+          onClick={handleLogout}
+          disabled={isLoggingOut}
           variant="outline"
           size="sm"
           className="w-full"
         >
-          Cerrar sesión
+          {isLoggingOut ? 'Cerrando sesión...' : 'Cerrar sesión'}
         </Button>
       </div>
     </aside>

@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Calendar, Clock, AlertCircle, Edit2, Loader2 } from 'lucide-react';
+import { Calendar, Clock, AlertCircle, Edit2, Loader2, Upload, FileText, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAppointments } from '@/hooks/use-appointments';
@@ -21,16 +21,23 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useAuth } from '@/contexts/AuthContext';
 import type {
   ApiAppointmentDetail,
   ApiAppointmentSummary,
 } from '@/app/api/appointments/types';
 import type { AppointmentStatus } from '@/utils/types/appointments';
 import { APPOINTMENT_STATUS_VALUES } from '@/utils/types/appointments';
+import type { ParaclinicType } from '@/app/api/paraclinics/types';
 
 export default function Citas() {
   const router = useRouter();
   const today = new Date();
+  const { user } = useAuth();
+  const isDoctor = user?.role === 'doctor';
   const { appointments, loading, error, refetch } = useAppointments({ limit: 100 });
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -41,13 +48,26 @@ export default function Citas() {
   const [selectedStatusAppointment, setSelectedStatusAppointment] = useState<ApiAppointmentSummary | null>(null);
   const [newStatus, setNewStatus] = useState<AppointmentStatus>('scheduled');
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  
+  // Upload dialog state
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploadType, setUploadType] = useState<'paraclinic' | 'plan'>('paraclinic');
+  const [selectedAppointmentForUpload, setSelectedAppointmentForUpload] = useState<ApiAppointmentSummary | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [paraclinicType, setParaclinicType] = useState<ParaclinicType>('lab');
+  const [paraclinicDescription, setParaclinicDescription] = useState('');
+  const [paraclinicResultDate, setParaclinicResultDate] = useState('');
+  const [planDescription, setPlanDescription] = useState('');
+  const [planStartDate, setPlanStartDate] = useState('');
+  const [planEndDate, setPlanEndDate] = useState('');
 
   const statusClassMap: Record<AppointmentStatus, string> = {
-    scheduled: 'bg-warning/10 text-warning border-warning/20',
-    rescheduled: 'bg-warning/10 text-warning border-warning/20',
-    completed: 'bg-success/10 text-success border-success/20',
-    cancelled: 'bg-destructive/10 text-destructive border-destructive/20',
-    no_show: 'bg-muted text-muted-foreground border-border',
+    scheduled: 'bg-white text-primary border-primary',
+    rescheduled: 'bg-white text-primary border-primary',
+    completed: 'bg-white text-primary border-primary',
+    cancelled: 'bg-white text-primary border-primary',
+    no_show: 'bg-white text-primary border-primary',
   };
 
   const { scheduledAppointments, completedAppointments, cancelledAppointments } = useMemo(() => {
@@ -179,6 +199,149 @@ export default function Citas() {
     }
   };
 
+  const handleOpenUploadDialog = (appointment: ApiAppointmentSummary, type: 'paraclinic' | 'plan') => {
+    setSelectedAppointmentForUpload(appointment);
+    setUploadType(type);
+    setUploadDialogOpen(true);
+    // Reset form
+    setUploadFile(null);
+    setParaclinicType('lab');
+    setParaclinicDescription('');
+    setParaclinicResultDate('');
+    setPlanDescription('');
+    setPlanStartDate('');
+    setPlanEndDate('');
+  };
+
+  const handleCloseUploadDialog = () => {
+    setUploadDialogOpen(false);
+    setSelectedAppointmentForUpload(null);
+    setUploadFile(null);
+    setParaclinicType('lab');
+    setParaclinicDescription('');
+    setParaclinicResultDate('');
+    setPlanDescription('');
+    setPlanStartDate('');
+    setPlanEndDate('');
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        toast({
+          title: 'Tipo de archivo no válido',
+          description: 'Solo se permiten archivos PDF, JPG, PNG o WEBP.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      // Validate file size (10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: 'Archivo demasiado grande',
+          description: 'El tamaño máximo es 10MB.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      setUploadFile(file);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!uploadFile || !selectedAppointmentForUpload) return;
+
+    setUploading(true);
+    try {
+      // Step 1: Upload file
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+      formData.append('appointmentId', selectedAppointmentForUpload.id);
+      formData.append('category', uploadType);
+
+      const uploadResponse = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json();
+        throw new Error(errorData.error || 'Error al subir el archivo');
+      }
+
+      const uploadResult = await uploadResponse.json();
+      const fileUrl = uploadResult.data.fileUrl;
+      const fileType = uploadResult.data.fileType;
+
+      // Step 2: Create paraclinic or plan record
+      if (uploadType === 'paraclinic') {
+        const paraclinicResponse = await fetch('/api/paraclinics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            appointmentId: selectedAppointmentForUpload.id,
+            type: paraclinicType,
+            fileFormat: fileType.split('/')[1] || 'pdf',
+            resultDate: paraclinicResultDate || null,
+            fileUrl,
+            description: paraclinicDescription || null,
+          }),
+        });
+
+        if (!paraclinicResponse.ok) {
+          const errorData = await paraclinicResponse.json();
+          throw new Error(errorData.error || 'Error al crear el registro paraclínico');
+        }
+
+        toast({
+          title: 'Paraclínico registrado',
+          description: 'El archivo paraclínico se ha subido y registrado correctamente.',
+        });
+      } else {
+        const planResponse = await fetch('/api/plans', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            appointmentId: selectedAppointmentForUpload.id,
+            startDate: planStartDate || null,
+            endDate: planEndDate || null,
+            plan: {
+              description: planDescription,
+              fileUrl,
+              fileType,
+            },
+          }),
+        });
+
+        if (!planResponse.ok) {
+          const errorData = await planResponse.json();
+          throw new Error(errorData.error || 'Error al crear el plan');
+        }
+
+        toast({
+          title: 'Plan registrado',
+          description: 'El plan se ha subido y registrado correctamente.',
+        });
+      }
+
+      handleCloseUploadDialog();
+      await refetch();
+    } catch (error) {
+      toast({
+        title: 'Error al subir archivo',
+        description: error instanceof Error ? error.message : 'Error inesperado.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const renderAppointmentTable = (appointments: ApiAppointmentSummary[]) => {
     if (appointments.length === 0) return null;
 
@@ -262,29 +425,88 @@ export default function Citas() {
                   <td className="px-4 py-4">
                     <Badge
                       variant="outline"
-                      className={`text-xs border ${statusClassMap[apt.status] ?? 'bg-muted text-muted-foreground border-border'}`}
+                      className={`text-xs ${statusClassMap[apt.status] ?? 'bg-white text-primary border-primary'}`}
                     >
                       {formatAppointmentStatus(apt.status)}
                     </Badge>
                   </td>
                   <td className="px-4 py-4">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleOpenDetail(apt.id)}
-                        disabled={isLoadingDetail}
-                      >
-                        {isLoadingDetail ? 'Cargando...' : 'Ver Detalles'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleOpenStatusDialog(apt)}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <TooltipProvider>
+                      <div className="flex items-center gap-1">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleOpenDetail(apt.id)}
+                              disabled={isLoadingDetail}
+                              className="h-8 w-8 p-0"
+                            >
+                              {isLoadingDetail ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Ver detalles de la cita</p>
+                          </TooltipContent>
+                        </Tooltip>
+
+                        {isDoctor && (
+                          <>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleOpenUploadDialog(apt, 'paraclinic')}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Upload className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Subir paraclínico (laboratorio, imagen o procedimiento)</p>
+                              </TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleOpenUploadDialog(apt, 'plan')}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <FileText className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Subir plan de tratamiento</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </>
+                        )}
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleOpenStatusDialog(apt)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Cambiar estado de la cita</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </TooltipProvider>
                   </td>
                 </tr>
               );
@@ -336,7 +558,7 @@ export default function Citas() {
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Estado</p>
                 <Badge
                   variant="outline"
-                  className={`w-fit text-xs border ${statusClassMap[selectedAppointmentDetail.status] ?? 'bg-muted text-muted-foreground border-border'}`}
+                  className={`w-fit text-xs ${statusClassMap[selectedAppointmentDetail.status] ?? 'bg-white text-primary border-primary'}`}
                 >
                   {formatAppointmentStatus(selectedAppointmentDetail.status)}
                 </Badge>
@@ -399,7 +621,7 @@ export default function Citas() {
                 </p>
                 <Badge
                   variant="outline"
-                  className={`text-xs border ${statusClassMap[selectedStatusAppointment.status] ?? 'bg-muted text-muted-foreground border-border'}`}
+                  className={`text-xs ${statusClassMap[selectedStatusAppointment.status] ?? 'bg-white text-primary border-primary'}`}
                 >
                   Estado actual: {formatAppointmentStatus(selectedStatusAppointment.status)}
                 </Badge>
@@ -443,6 +665,147 @@ export default function Citas() {
             >
               {updatingStatus && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Actualizar Estado
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Upload Dialog */}
+      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+        <DialogContent className="sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">
+              {uploadType === 'paraclinic' ? 'Subir Paraclínico' : 'Subir Plan'}
+            </DialogTitle>
+            <DialogDescription>
+              {uploadType === 'paraclinic' 
+                ? 'Sube exámenes de laboratorio, imágenes médicas o resultados de procedimientos.'
+                : 'Sube el plan de tratamiento o prescripción para el paciente.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedAppointmentForUpload && (
+            <div className="space-y-5">
+              <div className="bg-muted/40 rounded-lg p-4 space-y-2">
+                <p className="text-sm font-medium text-foreground">
+                  {selectedAppointmentForUpload.patient.fullName}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {format(new Date(selectedAppointmentForUpload.scheduledAt), "d 'de' MMMM, HH:mm", { locale: es })}
+                </p>
+              </div>
+
+              {uploadType === 'paraclinic' ? (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="paraclinic-type">Tipo de Paraclínico</Label>
+                    <Select value={paraclinicType} onValueChange={(value) => setParaclinicType(value as ParaclinicType)}>
+                      <SelectTrigger id="paraclinic-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lab">Laboratorio</SelectItem>
+                        <SelectItem value="image">Imagen</SelectItem>
+                        <SelectItem value="procedure">Procedimiento</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="paraclinic-description">Descripción (Opcional)</Label>
+                    <Input
+                      id="paraclinic-description"
+                      placeholder="Ej: Perfil hormonal completo"
+                      value={paraclinicDescription}
+                      onChange={(e) => setParaclinicDescription(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="paraclinic-result-date">Fecha de Resultado (Opcional)</Label>
+                    <Input
+                      id="paraclinic-result-date"
+                      type="date"
+                      value={paraclinicResultDate}
+                      onChange={(e) => setParaclinicResultDate(e.target.value)}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="plan-description">Descripción del Plan</Label>
+                    <Textarea
+                      id="plan-description"
+                      placeholder="Describe el plan de tratamiento..."
+                      value={planDescription}
+                      onChange={(e) => setPlanDescription(e.target.value)}
+                      rows={4}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="plan-start-date">Fecha de Inicio (Opcional)</Label>
+                      <Input
+                        id="plan-start-date"
+                        type="date"
+                        value={planStartDate}
+                        onChange={(e) => setPlanStartDate(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="plan-end-date">Fecha de Fin (Opcional)</Label>
+                      <Input
+                        id="plan-end-date"
+                        type="date"
+                        value={planEndDate}
+                        onChange={(e) => setPlanEndDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="file-upload">Archivo (PDF o Imagen)</Label>
+                <Input
+                  id="file-upload"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  onChange={handleFileChange}
+                  disabled={uploading}
+                />
+                {uploadFile && (
+                  <p className="text-xs text-muted-foreground">
+                    Archivo seleccionado: {uploadFile.name} ({(uploadFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Formatos permitidos: PDF, JPG, PNG, WEBP. Tamaño máximo: 10MB
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCloseUploadDialog}
+              disabled={uploading}
+              className="w-full sm:w-auto"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleUpload}
+              disabled={uploading || !uploadFile || (uploadType === 'plan' && !planDescription)}
+              className="w-full sm:w-auto"
+            >
+              {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {uploading ? 'Subiendo...' : 'Subir Archivo'}
             </Button>
           </DialogFooter>
         </DialogContent>
