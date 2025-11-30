@@ -41,10 +41,12 @@ import {
   CheckCircle2,
   XCircle,
   Trash2,
+  MessageCircle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { ApiPlan } from '@/app/api/plans/types';
+import { ContactAgentModal } from '@/components/ContactAgentModal';
 
 // Component to display plan row with files
 function PlanRow({ plan }: { plan: ApiPlan }) {
@@ -148,6 +150,7 @@ export default function PatientDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [conversationModalOpen, setConversationModalOpen] = useState(false);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
 
   // Fetch all patient-related data
   const { patients, loading: loadingPatient, error: errorPatient } = usePatients({ id: patientId });
@@ -313,15 +316,26 @@ export default function PatientDetailPage() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Volver
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowDeleteDialog(true)}
-            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Eliminar Paciente
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setContactModalOpen(true)}
+              className="gap-2"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Checkeo Diario
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDeleteDialog(true)}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Eliminar Paciente
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-6 items-start">
@@ -802,6 +816,17 @@ export default function PatientDetailPage() {
         onOpenChange={setConversationModalOpen}
         conversationId={selectedConversationId}
       />
+
+      {/* Contact Agent Modal */}
+      {patient && (
+        <ContactAgentModal
+          open={contactModalOpen}
+          onOpenChange={setContactModalOpen}
+          patientId={patient.id}
+          patientName={patient.profile.fullName}
+          patientPhone={patient.profile.phone}
+        />
+      )}
     </div>
   );
 }
