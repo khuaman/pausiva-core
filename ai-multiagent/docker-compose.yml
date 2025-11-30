@@ -1,0 +1,62 @@
+# ============================================
+# Pausiva AI Multiagent - Docker Compose
+# ============================================
+# Production deployment configuration
+#
+# Usage:
+#   docker compose up -d              # Start in detached mode
+#   docker compose logs -f            # Follow logs
+#   docker compose down               # Stop and remove containers
+#   docker compose build --no-cache   # Rebuild without cache
+#
+# For development with hot-reload:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  pausiva-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pausiva-ai-multiagent
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8099}:8099"
+    environment:
+      # Application Environment
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+
+      # Google AI (Gemini) - REQUIRED
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+
+      # Supabase - REQUIRED
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+
+      # LangSmith Tracing - OPTIONAL
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY:-}
+      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-pausiva-chat}
+      - LANGCHAIN_ENDPOINT=${LANGCHAIN_ENDPOINT:-https://api.smith.langchain.com}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8099/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - pausiva-network
+    # Resource limits (adjust based on your server)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+networks:
+  pausiva-network:
+    driver: bridge
+

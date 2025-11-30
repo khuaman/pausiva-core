@@ -1,0 +1,22 @@
+# ============================================
+# Pausiva AI Multiagent - Development Override
+# ============================================
+# Use with: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Features:
+#   - Hot-reload enabled
+#   - Source code mounted as volume
+#   - Local environment settings
+
+services:
+  pausiva-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    environment:
+      - ENVIRONMENT=local
+    volumes:
+      # Mount source code for hot-reload
+      - ./app:/app/app:ro
+    command: ["fastapi", "dev", "app/main.py", "--host", "0.0.0.0", "--port", "8099"]
+

@@ -1,4 +1,5 @@
 """Base state schemas for LangGraph."""
+
 from typing import Annotated, Optional
 
 from langchain_core.messages import BaseMessage
@@ -61,13 +62,18 @@ class PatientContextData(BaseModel):
 
 class InputState(BaseModel):
     """Input state for the graph.
-    
-    Note: phone_number is used as the thread_id for conversation memory.
-    When using LangGraph Studio, you must provide it in the input.
+
+    Identifiers:
+    - thread_id: Conversation session ID (for LangGraph checkpointing)
+    - phone_number: Patient identifier (for context/personalization)
+
+    The thread_id is created by the client and used for conversation memory.
+    The phone_number is used to look up patient context and customize behavior.
     """
 
     messages: Messages
-    phone_number: str  # Used as thread_id for checkpointing
+    thread_id: str  # Conversation session ID for checkpointing
+    phone_number: str  # Patient identifier for context lookup
     category: MessageCategory = MessageCategory.GENERAL
 
     model_config = {"arbitrary_types_allowed": True}
@@ -105,4 +111,3 @@ class ChatContext(BaseModel):
     conversation_state: ConversationState = Field(default_factory=ConversationState)
 
     model_config = {"arbitrary_types_allowed": True}
-
