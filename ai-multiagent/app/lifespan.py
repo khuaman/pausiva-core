@@ -45,6 +45,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[LifespanState, None]:
     chat_graph = graph_builder.compile(checkpointer=checkpointer)
     print("✓ Chat graph compiled with checkpointer (MemorySaver)")
 
+    # Explicitly set on app.state for dependencies to access via request.app.state
+    app.state.chat_graph = chat_graph
+
     yield LifespanState(chat_graph=chat_graph)
 
     # Shutdown

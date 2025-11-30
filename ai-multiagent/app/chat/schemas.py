@@ -1,4 +1,6 @@
 """Request/response schemas for the chat API."""
+
+import uuid
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -7,19 +9,43 @@ from pydantic import BaseModel, Field
 class MessageRequest(BaseModel):
     """Request body for the /message endpoint."""
 
-    phone: str = Field(..., description="Patient phone number")
+    thread_id: str = Field(
+        ...,
+        description="Conversation session ID (created by client for checkpointing)",
+    )
+    message_id: str = Field(
+        description="Message ID for tracing (auto-generated if not provided)",
+        default_factory=lambda: str(uuid.uuid4()),
+    )
+    phone: str = Field(
+        ...,
+        description="Patient phone number (for context/personalization)",
+    )
     message: str = Field(..., description="Message content")
 
 
 class CheckinRequest(BaseModel):
     """Request body for the /checkin endpoint."""
 
-    phone: str = Field(..., description="Patient phone number")
+    thread_id: str = Field(
+        ...,
+        description="Conversation session ID (created by client for checkpointing)",
+    )
+    message_id: str = Field(
+        description="Message ID for tracing (auto-generated if not provided)",
+        default_factory=lambda: str(uuid.uuid4()),
+    )
+    phone: str = Field(
+        ...,
+        description="Patient phone number (for context/personalization)",
+    )
 
 
 class MessageResponse(BaseModel):
     """Response from the chat system."""
 
+    thread_id: str = Field(..., description="Conversation session ID")
+    message_id: str = Field(..., description="Message ID (from request or auto-generated)")
     reply_text: str = Field(..., description="Response text to send to patient")
     actions: list[str] = Field(default_factory=lambda: ["SEND_MESSAGE"])
     risk_level: str = Field(default="none")
@@ -47,4 +73,3 @@ class StorageStatusResponse(BaseModel):
     mode: str
     supabase_configured: bool
     supabase_url: Optional[str] = None
-

@@ -24,22 +24,31 @@ async def process_message(
     """
     Process a message from a patient.
 
-    The phone number is used as the thread_id for conversation memory,
-    allowing the AI to remember context from previous messages.
+    Identifiers:
+    - thread_id: Conversation session ID (for checkpointing/memory)
+    - message_id: Message ID for tracing (auto-generated if not provided)
+    - phone: Patient identifier (for context/personalization)
 
     Args:
-        request: Message request with phone and message
+        request: Message request with thread_id, message_id, phone, and message
         service: Injected chat service with checkpointer
 
     Returns:
         MessageResponse with the reply and metadata
     """
     try:
-        response = await service.process_message(request.phone, request.message)
+        response = await service.process_message(
+            request.thread_id,
+            request.message_id,
+            request.phone,
+            request.message,
+        )
         return MessageResponse(
+            thread_id=request.thread_id,
+            message_id=request.message_id,
             reply_text=response.reply_text,
             actions=response.actions,
-            risk_level=response.risk_level.value,
+            risk_level=response.risk_level,  # Already a string due to use_enum_values=True
             risk_score=response.risk_score,
             symptom_summary=response.symptom_summary,
             medication_schedule=response.medication_schedule,
@@ -60,18 +69,24 @@ async def send_checkin(
     Send a proactive check-in message to a patient.
 
     Args:
-        request: Check-in request with phone number
+        request: Check-in request with thread_id, message_id, and phone
         service: Injected chat service
 
     Returns:
         MessageResponse with the check-in message
     """
     try:
-        response = await service.send_checkin(request.phone)
+        response = await service.send_checkin(
+            request.thread_id,
+            request.message_id,
+            request.phone,
+        )
         return MessageResponse(
+            thread_id=request.thread_id,
+            message_id=request.message_id,
             reply_text=response.reply_text,
             actions=response.actions,
-            risk_level=response.risk_level.value,
+            risk_level=response.risk_level,  # Already a string due to use_enum_values=True
             risk_score=response.risk_score,
             agent_used=response.agent_used,
         )

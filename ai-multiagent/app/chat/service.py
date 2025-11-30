@@ -1,4 +1,5 @@
 """Business logic for the chat service."""
+
 from typing import TYPE_CHECKING
 
 from langchain_core.messages import AIMessage, HumanMessage
@@ -12,7 +13,7 @@ from .core.schemas import InputState, PatientContextData
 from .core.types import MessageCategory
 
 if TYPE_CHECKING:
-    from langgraph.checkpoint.base import BaseCheckpointSaver
+    pass
 
 
 class ChatService:
@@ -25,40 +26,50 @@ class ChatService:
         self.graph = graph
         self.patient_repo = PatientRepository()
 
-    async def process_message(self, phone: str, message: str) -> AgentResponse:
+    async def process_message(
+        self, thread_id: str, message_id: str, phone: str, message: str
+    ) -> AgentResponse:
         """
         Process an incoming message from a patient.
 
         Args:
-            phone: Patient phone number (used as thread_id for memory)
+            thread_id: Conversation session ID (for checkpointing)
+            message_id: Message ID for tracing (assigned to HumanMessage)
+            phone: Patient phone number (for context/personalization)
             message: Message content
 
         Returns:
             AgentResponse with the reply and metadata
         """
-        # Build patient context
+        # Build patient context using phone number
         patient_context = self._build_patient_context(phone)
+
+        # Create HumanMessage with assigned message_id for tracing
+        human_message = HumanMessage(content=message)
+        human_message.id = message_id
 
         # Create input state
         input_state = InputState(
-            messages=[HumanMessage(content=message)],
+            messages=[human_message],
+            thread_id=thread_id,
             phone_number=phone,
             category=MessageCategory.GENERAL,
         )
 
         # Run the graph with thread_id for conversation memory
-        # The phone number serves as the unique thread identifier
+        # thread_id is the session identifier, phone_number is for patient context
         result = await self.graph.ainvoke(
             {
                 "messages": input_state.messages,
+                "thread_id": thread_id,
                 "phone_number": phone,
                 "category": MessageCategory.GENERAL,
                 "patient_context": patient_context,
             },
             config={
-                "configurable": {"thread_id": phone},
+                "configurable": {"thread_id": thread_id},
                 "run_name": "Pausiva Chat",
-                "tags": ["whatsapp", "patient"],
+                "tags": ["whatsapp", "patient", f"phone:{phone}"],
             },
         )
 
@@ -81,12 +92,16 @@ class ChatService:
             agent_used=result.get("agent_used"),
         )
 
-    async def send_checkin(self, phone: str) -> AgentResponse:
+    async def send_checkin(
+        self, thread_id: str, message_id: str, phone: str
+    ) -> AgentResponse:
         """
         Send a proactive check-in message to a patient.
 
         Args:
-            phone: Patient phone number
+            thread_id: Conversation session ID (for checkpointing)
+            message_id: Message ID for tracing
+            phone: Patient phone number (for context/personalization)
 
         Returns:
             AgentResponse with the check-in message
@@ -133,4 +148,3 @@ class ChatService:
             recent_symptoms=[],  # TODO: Load from storage
             conversation_summary="",
         )
-
