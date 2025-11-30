@@ -2,32 +2,45 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Calendar, Clock, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, AlertCircle, Edit2, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAppointments } from '@/hooks/use-appointments';
+import { toast } from '@/hooks/use-toast';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import type {
   ApiAppointmentDetail,
   ApiAppointmentSummary,
 } from '@/app/api/appointments/types';
 import type { AppointmentStatus } from '@/utils/types/appointments';
+import { APPOINTMENT_STATUS_VALUES } from '@/utils/types/appointments';
 
 export default function Citas() {
   const router = useRouter();
   const today = new Date();
-  const { appointments, loading, error } = useAppointments({ limit: 100 });
+  const { appointments, loading, error, refetch } = useAppointments({ limit: 100 });
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [selectedAppointmentDetail, setSelectedAppointmentDetail] = useState<ApiAppointmentDetail | null>(null);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [selectedStatusAppointment, setSelectedStatusAppointment] = useState<ApiAppointmentSummary | null>(null);
+  const [newStatus, setNewStatus] = useState<AppointmentStatus>('scheduled');
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const statusClassMap: Record<AppointmentStatus, string> = {
     scheduled: 'bg-warning/10 text-warning border-warning/20',
@@ -73,6 +86,9 @@ export default function Citas() {
   const formatAppointmentType = (type: string) =>
     type.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
+  const formatAppointmentStatus = (status: string) =>
+    status.replace(/_/g, ' ').replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+
   const handleOpenDetail = useCallback(
     async (appointmentId: string) => {
       setDetailDialogOpen(true);
@@ -109,85 +125,165 @@ export default function Citas() {
     setDetailLoading(false);
   };
 
-  const renderAppointmentCard = (apt: ApiAppointmentSummary) => {
-    const appointmentDate = new Date(apt.scheduledAt);
-    const formattedDate = format(appointmentDate, "d 'de' MMMM", { locale: es });
-    const formattedTime = format(appointmentDate, 'HH:mm');
-    const initials = apt.patient.fullName
-      .split(' ')
-      .map((name) => (name ? name[0] : ''))
-      .join('')
-      .slice(0, 2)
-      .toUpperCase();
-    const isLoadingDetail = detailLoading && selectedAppointmentId === apt.id;
+  const handleOpenStatusDialog = (appointment: ApiAppointmentSummary) => {
+    setSelectedStatusAppointment(appointment);
+    setNewStatus(appointment.status);
+    setStatusDialogOpen(true);
+  };
+
+  const handleCloseStatusDialog = () => {
+    setStatusDialogOpen(false);
+    setSelectedStatusAppointment(null);
+    setNewStatus('scheduled');
+  };
+
+  const handleUpdateStatus = async () => {
+    if (!selectedStatusAppointment) return;
+
+    setUpdatingStatus(true);
+    try {
+      const response = await fetch(`/api/appointments/${selectedStatusAppointment.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al actualizar el estado');
+      }
+
+      toast({
+        title: 'Estado actualizado',
+        description: 'El estado de la cita se actualizó correctamente.',
+      });
+
+      handleCloseStatusDialog();
+      await refetch();
+    } catch (error) {
+      toast({
+        title: 'Error al actualizar',
+        description: error instanceof Error ? error.message : 'Error inesperado.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const renderAppointmentTable = (appointments: ApiAppointmentSummary[]) => {
+    if (appointments.length === 0) return null;
 
     return (
-      <Card key={apt.id} className="card-hover group shadow-sm">
-        <CardContent className="p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-            <Avatar className="h-14 w-14 sm:h-16 sm:w-16 border-2 border-border flex-shrink-0">
-              <AvatarImage src={apt.patient.pictureUrl ?? undefined} alt={apt.patient.fullName} />
-              <AvatarFallback className="bg-primary text-primary-foreground text-base sm:text-lg font-semibold">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-border bg-muted/50">
+              <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                Paciente
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                Tipo
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                Fecha
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                Hora
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                Profesional
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                Estado
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                Acciones
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {appointments.map((apt) => {
+              const appointmentDate = new Date(apt.scheduledAt);
+              const formattedDate = format(appointmentDate, "d 'de' MMM", { locale: es });
+              const formattedTime = format(appointmentDate, 'HH:mm');
+              const initials = apt.patient.fullName
+                .split(' ')
+                .map((name) => (name ? name[0] : ''))
+                .join('')
+                .slice(0, 2)
+                .toUpperCase();
+              const isLoadingDetail = detailLoading && selectedAppointmentId === apt.id;
 
-            <div className="flex-1 min-w-0 space-y-3 w-full">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-base sm:text-lg font-serif font-semibold text-foreground">
-                  {apt.patient.fullName}
-                </h3>
-                <Badge
-                  variant="outline"
-                  className={`text-xs border ${statusClassMap[apt.status] ?? 'bg-muted text-muted-foreground border-border'}`}
+              return (
+                <tr 
+                  key={apt.id} 
+                  className="border-b border-border hover:bg-muted/30 transition-colors"
                 >
-                  {apt.status.replace('_', ' ').toUpperCase()}
-                </Badge>
-              </div>
-
-              <p className="text-sm sm:text-base text-muted-foreground font-medium">
-                {formatAppointmentType(apt.type)}
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                  <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
-                  <span className="font-medium truncate">{formattedDate}</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                  <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
-                  <span className="font-medium">{formattedTime}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 text-xs sm:text-sm flex-wrap">
-                <span className="text-muted-foreground">Profesional:</span>
-                <span className="font-semibold text-foreground">{apt.doctor.fullName}</span>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleOpenDetail(apt.id)}
-                disabled={isLoadingDetail}
-                className="w-full sm:w-auto shrink-0"
-              >
-                {isLoadingDetail ? 'Cargando...' : 'Ver Detalles'}
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => router.push(`/paciente/${apt.patient.id}`)}
-                className="w-full sm:w-auto shrink-0"
-              >
-                Ver Paciente
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={apt.patient.pictureUrl ?? undefined} alt={apt.patient.fullName} />
+                        <AvatarFallback className="bg-primary text-primary-foreground">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-foreground">{apt.patient.fullName}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 text-foreground">
+                    {formatAppointmentType(apt.type)}
+                  </td>
+                  <td className="px-4 py-4 text-foreground">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-sm">{formattedDate}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 text-foreground">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-sm">{formattedTime}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 text-foreground">
+                    {apt.doctor.fullName}
+                  </td>
+                  <td className="px-4 py-4">
+                    <Badge
+                      variant="outline"
+                      className={`text-xs border ${statusClassMap[apt.status] ?? 'bg-muted text-muted-foreground border-border'}`}
+                    >
+                      {formatAppointmentStatus(apt.status)}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleOpenDetail(apt.id)}
+                        disabled={isLoadingDetail}
+                      >
+                        {isLoadingDetail ? 'Cargando...' : 'Ver Detalles'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleOpenStatusDialog(apt)}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     );
   };
 
@@ -234,7 +330,7 @@ export default function Citas() {
                   variant="outline"
                   className={`w-fit text-xs border ${statusClassMap[selectedAppointmentDetail.status] ?? 'bg-muted text-muted-foreground border-border'}`}
                 >
-                  {selectedAppointmentDetail.status.replace('_', ' ').toUpperCase()}
+                  {formatAppointmentStatus(selectedAppointmentDetail.status)}
                 </Badge>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -274,6 +370,76 @@ export default function Citas() {
         </DialogContent>
       </Dialog>
 
+      {/* Status Update Dialog */}
+      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">Actualizar Estado de Cita</DialogTitle>
+            <DialogDescription>
+              Cambia el estado de la cita según su progreso o situación.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedStatusAppointment && (
+            <div className="space-y-5">
+              <div className="bg-muted/40 rounded-lg p-4 space-y-2">
+                <p className="text-sm font-medium text-foreground">
+                  {selectedStatusAppointment.patient.fullName}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {format(new Date(selectedStatusAppointment.scheduledAt), "d 'de' MMMM, HH:mm", { locale: es })}
+                </p>
+                <Badge
+                  variant="outline"
+                  className={`text-xs border ${statusClassMap[selectedStatusAppointment.status] ?? 'bg-muted text-muted-foreground border-border'}`}
+                >
+                  Estado actual: {formatAppointmentStatus(selectedStatusAppointment.status)}
+                </Badge>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="status-select">Nuevo Estado</Label>
+                <Select value={newStatus} onValueChange={(value: AppointmentStatus) => setNewStatus(value)}>
+                  <SelectTrigger id="status-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {APPOINTMENT_STATUS_VALUES.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {formatAppointmentStatus(status)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Selecciona el nuevo estado para esta cita médica.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCloseStatusDialog}
+              disabled={updatingStatus}
+              className="w-full sm:w-auto"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleUpdateStatus}
+              disabled={updatingStatus || newStatus === selectedStatusAppointment?.status}
+              className="w-full sm:w-auto"
+            >
+              {updatingStatus && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Actualizar Estado
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Content */}
       <main className="p-4 sm:p-6 lg:p-8">
         {error && (
@@ -284,24 +450,6 @@ export default function Citas() {
             </AlertDescription>
           </Alert>
         )}
-
-        {/* Vista de Calendario - Placeholder */}
-        <section className="mb-8">
-          <h2 className="text-xl font-semibold text-foreground mb-4">Vista de Calendario</h2>
-          <Card className="shadow-sm border-dashed border-2">
-            <CardContent className="p-8 sm:p-12 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary/10 mb-4">
-                <Calendar className="h-8 w-8 sm:h-10 sm:w-10 text-primary" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-serif font-semibold text-foreground mb-2">
-                Vista de Calendario
-              </h3>
-              <p className="text-sm sm:text-base text-muted-foreground max-w-md mx-auto">
-                Próximamente podrás visualizar todas tus citas en un calendario interactivo mensual
-              </p>
-            </CardContent>
-          </Card>
-        </section>
 
         {/* Lista de Citas */}
         <section>
@@ -325,69 +473,45 @@ export default function Citas() {
               </TabsTrigger>
             </TabsList>
 
-          <TabsContent value="scheduled" className="space-y-4">
+          <TabsContent value="scheduled">
             {loading ? (
-              <Card className="border-dashed">
-                <CardContent className="p-12 text-center text-muted-foreground">
-                  Cargando citas programadas...
-                </CardContent>
-              </Card>
+              <div className="text-center py-12 text-muted-foreground">
+                Cargando citas programadas...
+              </div>
             ) : scheduledAppointments.length > 0 ? (
-              scheduledAppointments.map(renderAppointmentCard)
+              renderAppointmentTable(scheduledAppointments)
             ) : (
-              <Card className="border-dashed">
-                <CardContent className="p-16 text-center">
-                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
-                    <Calendar className="h-10 w-10 text-primary" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No hay citas programadas</h3>
-                  <p className="text-muted-foreground">No se han encontrado citas con estado programado</p>
-                </CardContent>
-              </Card>
+              <div className="text-center py-12 text-muted-foreground">
+                No hay citas programadas
+              </div>
             )}
           </TabsContent>
 
-          <TabsContent value="completed" className="space-y-4">
+          <TabsContent value="completed">
             {loading ? (
-              <Card className="border-dashed">
-                <CardContent className="p-12 text-center text-muted-foreground">
-                  Cargando citas completadas...
-                </CardContent>
-              </Card>
+              <div className="text-center py-12 text-muted-foreground">
+                Cargando citas completadas...
+              </div>
             ) : completedAppointments.length > 0 ? (
-              completedAppointments.map(renderAppointmentCard)
+              renderAppointmentTable(completedAppointments)
             ) : (
-              <Card className="border-dashed">
-                <CardContent className="p-16 text-center">
-                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
-                    <Calendar className="h-10 w-10 text-primary" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No hay citas completadas</h3>
-                  <p className="text-muted-foreground">No se ha encontrado historial de citas completadas</p>
-                </CardContent>
-              </Card>
+              <div className="text-center py-12 text-muted-foreground">
+                No hay citas completadas
+              </div>
             )}
           </TabsContent>
 
-          <TabsContent value="cancelled" className="space-y-4">
+          <TabsContent value="cancelled">
             {loading ? (
-              <Card className="border-dashed">
-                <CardContent className="p-12 text-center text-muted-foreground">
-                  Cargando citas canceladas...
-                </CardContent>
-              </Card>
+              <div className="text-center py-12 text-muted-foreground">
+                Cargando citas canceladas...
+              </div>
             ) : cancelledAppointments.length > 0 ? (
-              cancelledAppointments.map(renderAppointmentCard)
+              renderAppointmentTable(cancelledAppointments)
             ) : (
-              <Card className="border-dashed">
-                <CardContent className="p-16 text-center">
-                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
-                    <Calendar className="h-10 w-10 text-primary" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No hay citas canceladas</h3>
-                  <p className="text-muted-foreground">No se ha encontrado historial de citas canceladas</p>
-                </CardContent>
-              </Card>
+              <div className="text-center py-12 text-muted-foreground">
+                No hay citas canceladas
+              </div>
             )}
           </TabsContent>
         </Tabs>
