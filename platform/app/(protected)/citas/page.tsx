@@ -7,27 +7,41 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Calendar, Clock, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, AlertCircle, Edit2, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAppointments } from '@/hooks/use-appointments';
+import { toast } from '@/hooks/use-toast';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import type {
   ApiAppointmentDetail,
   ApiAppointmentSummary,
 } from '@/app/api/appointments/types';
 import type { AppointmentStatus } from '@/utils/types/appointments';
+import { APPOINTMENT_STATUS_VALUES } from '@/utils/types/appointments';
 
 export default function Citas() {
   const router = useRouter();
   const today = new Date();
-  const { appointments, loading, error } = useAppointments({ limit: 100 });
+  const { appointments, loading, error, refetch } = useAppointments({ limit: 100 });
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [selectedAppointmentDetail, setSelectedAppointmentDetail] = useState<ApiAppointmentDetail | null>(null);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [selectedStatusAppointment, setSelectedStatusAppointment] = useState<ApiAppointmentSummary | null>(null);
+  const [newStatus, setNewStatus] = useState<AppointmentStatus>('scheduled');
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const statusClassMap: Record<AppointmentStatus, string> = {
     scheduled: 'bg-warning/10 text-warning border-warning/20',
@@ -73,6 +87,9 @@ export default function Citas() {
   const formatAppointmentType = (type: string) =>
     type.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
+  const formatAppointmentStatus = (status: string) =>
+    status.replace(/_/g, ' ').replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+
   const handleOpenDetail = useCallback(
     async (appointmentId: string) => {
       setDetailDialogOpen(true);
@@ -109,6 +126,52 @@ export default function Citas() {
     setDetailLoading(false);
   };
 
+  const handleOpenStatusDialog = (appointment: ApiAppointmentSummary) => {
+    setSelectedStatusAppointment(appointment);
+    setNewStatus(appointment.status);
+    setStatusDialogOpen(true);
+  };
+
+  const handleCloseStatusDialog = () => {
+    setStatusDialogOpen(false);
+    setSelectedStatusAppointment(null);
+    setNewStatus('scheduled');
+  };
+
+  const handleUpdateStatus = async () => {
+    if (!selectedStatusAppointment) return;
+
+    setUpdatingStatus(true);
+    try {
+      const response = await fetch(`/api/appointments/${selectedStatusAppointment.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al actualizar el estado');
+      }
+
+      toast({
+        title: 'Estado actualizado',
+        description: 'El estado de la cita se actualizó correctamente.',
+      });
+
+      handleCloseStatusDialog();
+      await refetch();
+    } catch (error) {
+      toast({
+        title: 'Error al actualizar',
+        description: error instanceof Error ? error.message : 'Error inesperado.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   const renderAppointmentCard = (apt: ApiAppointmentSummary) => {
     const appointmentDate = new Date(apt.scheduledAt);
     const formattedDate = format(appointmentDate, "d 'de' MMMM", { locale: es });
@@ -141,7 +204,7 @@ export default function Citas() {
                   variant="outline"
                   className={`text-xs border ${statusClassMap[apt.status] ?? 'bg-muted text-muted-foreground border-border'}`}
                 >
-                  {apt.status.replace('_', ' ').toUpperCase()}
+                  {formatAppointmentStatus(apt.status)}
                 </Badge>
               </div>
 
@@ -175,6 +238,15 @@ export default function Citas() {
                 className="w-full sm:w-auto shrink-0"
               >
                 {isLoadingDetail ? 'Cargando...' : 'Ver Detalles'}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleOpenStatusDialog(apt)}
+                className="w-full sm:w-auto shrink-0"
+              >
+                <Edit2 className="h-3.5 w-3.5 mr-1.5" />
+                Estado
               </Button>
               <Button
                 size="sm"
@@ -234,7 +306,7 @@ export default function Citas() {
                   variant="outline"
                   className={`w-fit text-xs border ${statusClassMap[selectedAppointmentDetail.status] ?? 'bg-muted text-muted-foreground border-border'}`}
                 >
-                  {selectedAppointmentDetail.status.replace('_', ' ').toUpperCase()}
+                  {formatAppointmentStatus(selectedAppointmentDetail.status)}
                 </Badge>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -271,6 +343,76 @@ export default function Citas() {
               Selecciona una cita para ver su detalle.
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Status Update Dialog */}
+      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">Actualizar Estado de Cita</DialogTitle>
+            <DialogDescription>
+              Cambia el estado de la cita según su progreso o situación.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedStatusAppointment && (
+            <div className="space-y-5">
+              <div className="bg-muted/40 rounded-lg p-4 space-y-2">
+                <p className="text-sm font-medium text-foreground">
+                  {selectedStatusAppointment.patient.fullName}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {format(new Date(selectedStatusAppointment.scheduledAt), "d 'de' MMMM, HH:mm", { locale: es })}
+                </p>
+                <Badge
+                  variant="outline"
+                  className={`text-xs border ${statusClassMap[selectedStatusAppointment.status] ?? 'bg-muted text-muted-foreground border-border'}`}
+                >
+                  Estado actual: {formatAppointmentStatus(selectedStatusAppointment.status)}
+                </Badge>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="status-select">Nuevo Estado</Label>
+                <Select value={newStatus} onValueChange={(value: AppointmentStatus) => setNewStatus(value)}>
+                  <SelectTrigger id="status-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {APPOINTMENT_STATUS_VALUES.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {formatAppointmentStatus(status)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Selecciona el nuevo estado para esta cita médica.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCloseStatusDialog}
+              disabled={updatingStatus}
+              className="w-full sm:w-auto"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleUpdateStatus}
+              disabled={updatingStatus || newStatus === selectedStatusAppointment?.status}
+              className="w-full sm:w-auto"
+            >
+              {updatingStatus && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Actualizar Estado
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

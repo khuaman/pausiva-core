@@ -778,51 +778,30 @@ export function AdminCreateMenu() {
               </div>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label>
-                  Tipo <span className="text-destructive">*</span>
-                </Label>
-                <Select
-                  value={appointmentForm.type}
-                  onValueChange={(value: AppointmentType) =>
-                    setAppointmentForm((prev) => ({ ...prev, type: value }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {APPOINTMENT_TYPE_VALUES.map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {formatEnumLabel(value)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label>
-                  Estado <span className="text-destructive">*</span>
-                </Label>
-                <Select
-                  value={appointmentForm.status}
-                  onValueChange={(value: AppointmentStatus) =>
-                    setAppointmentForm((prev) => ({ ...prev, status: value }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {APPOINTMENT_STATUS_VALUES.map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {formatEnumLabel(value)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid gap-2">
+              <Label>
+                Tipo <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={appointmentForm.type}
+                onValueChange={(value: AppointmentType) =>
+                  setAppointmentForm((prev) => ({ ...prev, type: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {APPOINTMENT_TYPE_VALUES.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {formatEnumLabel(value)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                La cita se creará con estado "Programada"
+              </p>
             </div>
 
             <div className="grid gap-2">

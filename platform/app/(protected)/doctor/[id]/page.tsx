@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -8,9 +8,20 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDoctors } from '@/hooks/use-doctors';
 import { useAppointments } from '@/hooks/use-appointments';
+import { useToast } from '@/hooks/use-toast';
 import {
   ArrowLeft,
   Calendar,
@@ -27,6 +38,7 @@ import {
   XCircle,
   GraduationCap,
   IdCard,
+  Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -35,6 +47,9 @@ export default function DoctorDetailPage() {
   const params = useParams();
   const router = useRouter();
   const doctorId = params.id as string;
+  const { toast } = useToast();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch doctor and their appointments
   const { doctors, loading: loadingDoctor, error: errorDoctor } = useDoctors({ id: doctorId });
@@ -42,6 +57,55 @@ export default function DoctorDetailPage() {
 
   const doctor = doctors[0];
   const loading = loadingDoctor || loadingAppointments;
+
+  const handleDeleteDoctor = async () => {
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/users/doctors?id=${doctorId}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: 'Doctor eliminado',
+          description: 'El doctor ha sido eliminado exitosamente.',
+        });
+        router.push('/doctores');
+      } else if (response.status === 409 && data.details) {
+        // Handle dependency conflict
+        const details = data.details;
+        let message = data.error;
+        
+        if (details.appointmentsCount) {
+          message += ` El doctor tiene ${details.appointmentsCount} cita${details.appointmentsCount > 1 ? 's' : ''} registrada${details.appointmentsCount > 1 ? 's' : ''}.`;
+        }
+        
+        toast({
+          title: 'No se puede eliminar',
+          description: message,
+          variant: 'destructive',
+          duration: 5000,
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: data.error || 'No se pudo eliminar el doctor.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Ocurrió un error al eliminar el doctor.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
 
   // Calculate age from birth date
   const age = useMemo(() => {
@@ -166,15 +230,25 @@ export default function DoctorDetailPage() {
     <div className="flex-1 overflow-auto">
       {/* Header */}
       <header className="bg-card border-b border-border px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.back()}
-          className="mb-4"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Volver
-        </Button>
+        <div className="flex items-center justify-between mb-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.back()}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Volver
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowDeleteDialog(true)}
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Eliminar Doctor
+          </Button>
+        </div>
 
         <div className="flex flex-col sm:flex-row gap-6 items-start">
           <Avatar className="h-[160px] w-[160px] rounded-[160px]">
@@ -615,6 +689,28 @@ export default function DoctorDetailPage() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Se eliminará permanentemente al Dr(a). {doctor?.profile.fullName} y todos sus datos asociados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteDoctor}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Eliminando...' : 'Eliminar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

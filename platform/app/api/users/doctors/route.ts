@@ -289,3 +289,100 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = getServiceSupabaseClient();
+    const { searchParams } = new URL(request.url);
+    const idParam = searchParams.get('id');
+
+    if (!idParam) {
+      return NextResponse.json(
+        { error: 'Doctor ID is required.' },
+        { status: 400 }
+      );
+    }
+
+    // First, verify the doctor exists
+    const { data: existingDoctor, error: fetchError } = await supabase
+      .from('doctors')
+      .select('id')
+      .eq('id', idParam)
+      .maybeSingle();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('[api/users/doctors] Error checking doctor existence', fetchError);
+      return NextResponse.json(
+        { error: 'Error verifying doctor existence.' },
+        { status: 500 }
+      );
+    }
+
+    if (!existingDoctor) {
+      return NextResponse.json(
+        { error: 'Doctor not found.' },
+        { status: 404 }
+      );
+    }
+
+    // Check for dependencies before deletion
+    const { count: appointmentsCount } = await supabase
+      .from('appointments')
+      .select('*', { count: 'exact', head: true })
+      .eq('doctor_id', idParam);
+
+    if (appointmentsCount && appointmentsCount > 0) {
+      return NextResponse.json(
+        {
+          error: 'No se puede eliminar el doctor porque tiene citas asociadas.',
+          details: {
+            hasAppointments: true,
+            appointmentsCount,
+          },
+        },
+        { status: 409 }
+      );
+    }
+
+    // Delete the doctor record
+    const { error: deleteDoctorError } = await supabase
+      .from('doctors')
+      .delete()
+      .eq('id', idParam);
+
+    if (deleteDoctorError) {
+      console.error('[api/users/doctors] Error deleting doctor record', deleteDoctorError);
+      
+      // Check if it's a foreign key constraint error
+      if (deleteDoctorError.code === '23503') {
+        return NextResponse.json(
+          {
+            error: 'No se puede eliminar el doctor porque tiene registros asociados en el sistema.',
+            details: { hasDependencies: true },
+          },
+          { status: 409 }
+        );
+      }
+      
+      return NextResponse.json(
+        { error: 'Could not delete doctor record.' },
+        { status: 500 }
+      );
+    }
+
+    // Delete the user account (auth)
+    await teardownProvisionedUser(supabase, idParam);
+
+    return NextResponse.json(
+      { message: 'Doctor deleted successfully.' },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('[api/users/doctors] Error deleting doctor', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unexpected error deleting doctor.';
+    return NextResponse.json(
+      { error: errorMessage },
+      { status: 500 }
+    );
+  }
+}
+
