@@ -100,7 +100,12 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
  */
 async function handleMessage(message: WhatsAppMessage): Promise<void> {
   const chatId = message.from;
+  const messageId = message.id;
   console.log(`📩 Received message from ${chatId}: ${message.type}`);
+
+  // Mark message as read immediately to trigger typing indicator ("...")
+  // This provides visual feedback while the AI processes the message
+  await whatsappClient.markAsRead(messageId);
 
   // Handle text messages
   if (message.type === "text" && message.text?.body) {
