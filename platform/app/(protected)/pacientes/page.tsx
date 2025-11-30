@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertDialog,
@@ -20,7 +19,7 @@ import {
 import { usePatients } from '@/hooks/use-patients';
 import { useDataRefetch } from '@/contexts/DataRefetchContext';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Filter, AlertCircle, Trash2 } from 'lucide-react';
+import { Search, Filter, AlertCircle, Trash2, MessageCircle } from 'lucide-react';
 
 export default function PacientesPage() {
   const router = useRouter();
@@ -91,6 +90,24 @@ export default function PacientesPage() {
       age--;
     }
     return age;
+  };
+
+  // Open WhatsApp chat with patient
+  const handleContactWhatsApp = (phone: string | null) => {
+    if (!phone) {
+      toast({
+        title: 'Sin número de teléfono',
+        description: 'Este paciente no tiene un número de teléfono registrado.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    // Clean phone number (remove spaces, dashes, parentheses)
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    
+    // Open WhatsApp (works on both mobile and desktop)
+    window.open(`https://wa.me/${cleanPhone}`, '_blank');
   };
 
   const filteredPatients = useMemo(() => {
@@ -168,13 +185,7 @@ export default function PacientesPage() {
                     Paciente
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                    Consultas
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                    Preconsultas
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                    Planes
+                    Última consulta
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
                     Acciones
@@ -184,9 +195,18 @@ export default function PacientesPage() {
               <tbody>
                 {filteredPatients.map((patient) => {
                   const age = calculateAge(patient.profile.birthDate);
-                  const consultasCount = patient.stats?.consultasCount || 0;
-                  const preconsultasCount = patient.stats?.preconsultasCount || 0;
-                  const hasPlans = patient.stats?.hasPlans || false;
+                  const lastAppointmentDate = patient.stats?.lastAppointmentDate;
+                  
+                  // Format the last appointment date
+                  const formatDate = (dateString: string | null | undefined) => {
+                    if (!dateString) return 'Sin citas';
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('es-ES', { 
+                      day: '2-digit', 
+                      month: 'short', 
+                      year: 'numeric' 
+                    });
+                  };
 
                   return (
                     <tr 
@@ -208,28 +228,21 @@ export default function PacientesPage() {
                         </div>
                       </td>
                       <td className="px-4 py-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-2xl font-semibold text-foreground">{consultasCount}</span>
-                        </div>
+                        <span className="text-sm text-foreground">
+                          {formatDate(lastAppointmentDate)}
+                        </span>
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-2">
-                          <span className="text-2xl font-semibold text-foreground">{preconsultasCount}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        {hasPlans ? (
-                          <Badge variant="default" className="bg-green-600">
-                            Sí
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary">
-                            No
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleContactWhatsApp(patient.profile.phone)}
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                          >
+                            <MessageCircle className="h-4 w-4 mr-1" />
+                            Contactar
+                          </Button>
                           <Button
                             size="sm"
                             variant="ghost"
