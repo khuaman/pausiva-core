@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { whatsappClient } from "./lib/whatsapp";
 import { runAndStream, startThread, getActionType, setActionType, getUserByPhone } from "./actions";
-import { getOrCreateConversation } from "./lib/storage";
+import { getOrCreateConversation, forceNewConversation } from "./lib/storage";
 
 // Types for WhatsApp webhook payload
 interface WhatsAppMessage {
@@ -103,9 +103,10 @@ async function handleMessage(message: WhatsAppMessage): Promise<void> {
   const messageId = message.id;
   console.log(`📩 Received message from ${chatId}: ${message.type}`);
 
-  // Mark message as read immediately to trigger typing indicator ("...")
+  // Mark message as read and show typing indicator ("...")
   // This provides visual feedback while the AI processes the message
-  await whatsappClient.markAsRead(messageId);
+  // Typing indicator auto-dismisses after 25s or when we respond
+  await whatsappClient.markAsRead(messageId, true);
 
   // Handle text messages
   if (message.type === "text" && message.text?.body) {
@@ -124,18 +125,56 @@ async function handleMessage(message: WhatsAppMessage): Promise<void> {
 }
 
 /**
+ * Check if a message is a greeting that should start a new conversation.
+ * Detects: hola, buenos días/tardes/noches, buen día, buenas tardes/noches, etc.
+ */
+function isGreeting(text: string): boolean {
+  const normalizedText = text
+    .toLowerCase()
+    .trim()
+    // Normalize accented characters
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  // Exact start commands
+  const exactCommands = ["start", "/start", "hi", "hello"];
+  if (exactCommands.includes(normalizedText)) {
+    return true;
+  }
+
+  // Greeting patterns (Spanish)
+  const greetingPatterns = [
+    /^hola\b/,                          // "hola", "hola!", "hola como estas"
+    /^buenos?\s*dias?\b/,               // "buen dia", "buenos dias"
+    /^buenas?\s*tardes?\b/,             // "buena tarde", "buenas tardes"
+    /^buenas?\s*noches?\b/,             // "buena noche", "buenas noches"
+  ];
+
+  return greetingPatterns.some((pattern) => pattern.test(normalizedText));
+}
+
+/**
  * Handle text messages from users
  */
 async function handleTextMessage(chatId: string, text: string): Promise<void> {
-  // Check for start commands
-  const startCommands = ["start", "hi", "hello", "hola", "/start"];
+  // Check if message is a greeting (should start new conversation)
+  const shouldStartNew = isGreeting(text);
+
+  // If greeting detected, force a new conversation (ends old one if exists)
+  if (shouldStartNew) {
+    console.log(`👋 Greeting detected: "${text}" - forcing new conversation`);
+    await forceNewConversation(chatId);
+    await startThread(chatId);
+    return;
+  }
   
   // Get or create conversation (uses Supabase + Redis cache)
   const { conversation, isNew } = await getOrCreateConversation(chatId);
   const threadId = conversation.threadId;
 
-  // Start new conversation for start commands or new conversations
-  if (startCommands.includes(text.toLowerCase()) || isNew) {
+  // Start new conversation for truly new conversations (no previous history)
+  if (isNew) {
+    console.log(`🆕 New conversation for ${chatId} - starting thread`);
     await startThread(chatId);
     return;
   }

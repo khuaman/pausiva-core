@@ -13,19 +13,34 @@ def get_appointments(
     include_past: bool = False,
     limit: int = 10,
 ) -> list[dict]:
-    """
-    Get appointments for a patient.
+    """Get a list of appointments for a patient.
 
-    Use this tool to look up upcoming or past appointments.
+    WHEN TO USE THIS vs get_next_appointment:
+    - Use get_appointments when patient asks for "todas mis citas", "mis citas", "history"
+    - Use get_next_appointment when patient asks "¿cuándo es mi próxima cita?"
+
+    USER INTENT MAPPING:
+    - "¿Cuáles son mis citas?" → get_appointments(phone, include_past=False)
+    - "Mis citas pasadas" / "historial de citas" → get_appointments(phone, include_past=True)
+    - "¿Tengo alguna cita?" → get_appointments(phone, include_past=False, limit=5)
+
+    RETURNS a list of appointments with:
+    - id: appointment UUID
+    - scheduled_at: datetime of appointment
+    - type: "pre_consulta" (free initial) or "consulta" (regular)
+    - status: "scheduled", "completed", "cancelled", "no_show", "rescheduled"
+    - doctor info: specialty, name
+    - notes: any notes from the appointment
+
+    IMPORTANT:
+    - Results are ordered by scheduled_at (most recent first for past, soonest first for upcoming)
+    - Empty list means no appointments found (patient may be new or hasn't scheduled yet)
+    - For new patients in onboarding, they won't have appointments until FLUJO 1.3 completes
 
     Args:
         phone: Patient phone number
-        include_past: Whether to include past appointments
-        limit: Maximum number of appointments to return
-
-    Returns:
-        List of appointment records with date, time, specialist, status, etc.
-        Empty list if patient not found or no appointments.
+        include_past: False = only upcoming appointments (default), True = include completed/past
+        limit: Maximum number to return (default 10, increase if patient asks for "all")
     """
     patient_repo = PatientRepository()
     appointment_repo = AppointmentRepository()
@@ -44,16 +59,28 @@ def get_appointments(
 
 @tool
 def get_next_appointment(phone: str) -> Optional[dict]:
-    """
-    Get the next upcoming appointment for a patient.
+    """Get ONLY the next upcoming appointment for a patient.
 
-    Use this tool to quickly check the patient's next scheduled appointment.
+    WHEN TO USE THIS vs get_appointments:
+    - Use get_next_appointment for: "¿cuándo es mi próxima cita?", "mi siguiente cita"
+    - Use get_appointments for: "todas mis citas", "mis citas", wanting a list
+
+    USER INTENT MAPPING:
+    - "¿Cuándo es mi cita?" → get_next_appointment(phone)
+    - "¿Tengo cita pronto?" → get_next_appointment(phone)
+    - "Mi próxima consulta" → get_next_appointment(phone)
+
+    RETURNS:
+    - Single appointment dict if found (scheduled_at, type, status, doctor info)
+    - None if no upcoming appointments
+
+    RESPONSE GUIDANCE based on result:
+    - If appointment found: "Tu próxima cita es el {fecha} a las {hora} con {especialista}"
+    - If None AND onboarding incomplete: Guide them to schedule via Taycal
+    - If None AND onboarding complete: "No tienes citas programadas. ¿Te gustaría agendar una?"
 
     Args:
         phone: Patient phone number
-
-    Returns:
-        Next appointment record, or None if no upcoming appointments.
     """
     patient_repo = PatientRepository()
     appointment_repo = AppointmentRepository()
@@ -79,23 +106,40 @@ def create_appointment_request(
     specialist_type: Optional[str] = None,
     reason: Optional[str] = None,
 ) -> dict:
-    """
-    Create a request for a new appointment.
+    """Create a request for a new appointment (records intent for staff follow-up).
 
-    Use this tool when a patient wants to schedule a new appointment.
-    Note: This creates a request that needs to be confirmed by staff.
-    For MVP, this records the intent - actual scheduling will be done
-    via Taycal integration (coming soon).
+    WHEN TO USE:
+    - Patient explicitly asks to schedule an appointment: "quiero una cita", "necesito consulta"
+    - After symptom assessment recommends scheduling (MEDIUM risk in FLUJO 6)
+    - NOT during initial onboarding (onboarding uses Taycal link directly)
+
+    DATE/TIME HANDLING - preserve natural language:
+    - "la próxima semana" → requested_date="próxima semana"
+    - "el lunes" → requested_date="lunes"
+    - "15 de enero" → requested_date="2025-01-15" (convert if specific)
+    - "en la mañana" → requested_time="mañana"
+    - "por la tarde" → requested_time="tarde"
+    - "a las 10" → requested_time="10:00"
+    - If unclear or not specified → leave as None, don't assume
+
+    SPECIALIST TYPES:
+    - "ginecólogo" / "ginecóloga" - for menopause symptoms, hormonal treatment
+    - "nutricionista" - for diet and nutrition plans
+    - "psicóloga" - for emotional support, anxiety, depression
+    - "general" - if not specified or unclear
+
+    IMPORTANT:
+    - This creates a REQUEST, not an actual appointment
+    - Staff will follow up to confirm the actual date/time
+    - Response should set expectation: "Te contactaremos para confirmar"
+    - For MVP, actual scheduling is done via Taycal or staff
 
     Args:
         phone: Patient phone number
-        requested_date: Preferred date (YYYY-MM-DD) or description like "next week"
-        requested_time: Preferred time or description like "morning"
-        specialist_type: Type of specialist needed (e.g., "ginecólogo", "general")
-        reason: Reason for the appointment
-
-    Returns:
-        Dictionary with request details and status.
+        requested_date: Preferred date - YYYY-MM-DD if specific, natural language otherwise
+        requested_time: Preferred time - HH:MM if specific, or "mañana"/"tarde"/"noche"
+        specialist_type: "ginecólogo", "nutricionista", "psicóloga", or "general"
+        reason: Brief reason extracted from conversation (symptoms, follow-up, etc.)
     """
     patient_repo = PatientRepository()
     patient = patient_repo.get_by_phone(phone)
@@ -117,17 +161,30 @@ def create_appointment_request(
 
 @tool
 def get_appointment_info(phone: str, appointment_id: str) -> Optional[dict]:
-    """
-    Get details of a specific appointment.
+    """Get detailed information about a specific appointment by ID.
 
-    Use this tool when the patient asks about a specific appointment.
+    WHEN TO USE:
+    - When you already have an appointment_id from a previous query
+    - When patient asks about a specific appointment from a list
+    - When you need full details including notes and plan info
+
+    TYPICAL FLOW:
+    1. get_appointments() → get list with IDs
+    2. Patient asks about specific one → get_appointment_info(phone, appointment_id)
+
+    RETURNS full appointment details:
+    - scheduled_at, type, status
+    - doctor info (name, specialty)
+    - notes from the consultation
+    - associated plan info if any
+
+    IMPORTANT:
+    - Validates that the appointment belongs to the patient (security)
+    - Returns None if appointment doesn't exist or doesn't belong to patient
 
     Args:
-        phone: Patient phone number (for validation)
-        appointment_id: ID of the appointment
-
-    Returns:
-        Appointment details, or None if not found.
+        phone: Patient phone number (for validation that appointment belongs to them)
+        appointment_id: UUID of the specific appointment
     """
     patient_repo = PatientRepository()
     appointment_repo = AppointmentRepository()
@@ -146,19 +203,35 @@ def cancel_appointment_request(
     appointment_id: str,
     reason: Optional[str] = None,
 ) -> dict:
-    """
-    Request cancellation of an appointment.
+    """Request cancellation of an existing appointment.
 
-    Use this tool when a patient wants to cancel an appointment.
-    Note: This creates a cancellation request that may need staff confirmation.
+    WHEN TO USE:
+    - Patient explicitly says: "quiero cancelar mi cita", "no puedo ir a mi cita"
+    - Patient asks to reschedule (cancel + create new request)
+
+    BEFORE CALLING:
+    1. Confirm which appointment they want to cancel (use get_appointments if unclear)
+    2. Confirm the patient really wants to cancel (don't assume)
+    3. Ask for reason if not provided (helps staff understand)
+
+    REASON EXTRACTION:
+    - "No puedo ir ese día" → reason="No disponible en fecha programada"
+    - "Me siento mejor, no necesito" → reason="Paciente indica mejoría"
+    - "Tengo otro compromiso" → reason="Conflicto de horario"
+    - If no reason given → leave as None, it's optional
+
+    IMPORTANT:
+    - This creates a CANCELLATION REQUEST, staff may need to confirm
+    - Response should acknowledge and set expectation for confirmation
+    - After cancelling, ask if they want to reschedule for another date
+
+    RESPONSE PATTERN:
+    "Tu solicitud de cancelación ha sido registrada. ¿Te gustaría reagendar para otra fecha?"
 
     Args:
         phone: Patient phone number
-        appointment_id: ID of the appointment to cancel
-        reason: Reason for cancellation (optional)
-
-    Returns:
-        Dictionary with cancellation request status.
+        appointment_id: UUID of the appointment to cancel (get from get_appointments)
+        reason: Brief reason for cancellation (optional but helpful)
     """
     patient_repo = PatientRepository()
     patient = patient_repo.get_by_phone(phone)
@@ -169,8 +242,7 @@ def cancel_appointment_request(
         "patient_id": patient["id"] if patient else None,
         "reason": reason,
         "message": (
-            "Tu solicitud de cancelación ha sido registrada. "
-            "Recibirás confirmación pronto."
+            "Tu solicitud de cancelación ha sido registrada. Recibirás confirmación pronto."
         ),
     }
 
@@ -183,4 +255,3 @@ APPOINTMENT_TOOLS = [
     get_appointment_info,
     cancel_appointment_request,
 ]
-

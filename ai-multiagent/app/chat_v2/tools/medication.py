@@ -9,17 +9,38 @@ from app.shared.database import PatientRepository
 
 @tool
 def get_medications(phone: str) -> list[dict]:
-    """
-    Get active medications for a patient.
+    """Get patient's current medications from their clinical profile.
 
-    Use this tool to look up what medications a patient is currently taking.
+    WHEN TO USE:
+    - Patient asks: "¿qué medicamentos tomo?", "mis medicinas", "mi tratamiento"
+    - Before asking about medication adherence
+    - When patient mentions side effects (to check what they're taking)
+    - To provide context when discussing symptoms
+
+    USER INTENT MAPPING:
+    - "¿Cuáles son mis medicamentos?" → get_medications(phone)
+    - "Mi tratamiento hormonal" → get_medications(phone)
+    - "¿Qué me recetaron?" → get_medications(phone)
+
+    RETURNS list of medications with:
+    - name: medication name
+    - dosage: e.g., "1mg", "500mg"
+    - frequency: e.g., "cada 8 horas", "una vez al día"
+    - time_of_day: e.g., "mañana", "noche"
+    - notes: additional instructions like "con comida"
+    - active: boolean
+
+    RESPONSE GUIDANCE:
+    - If medications exist: List them clearly with dosage and frequency
+    - If empty: "No tengo registro de medicamentos. ¿Te gustaría agregar alguno?"
+
+    IMPORTANT:
+    - Medications come from clinical_profile_json, may be updated by doctors
+    - This is for INFORMATION only - never modify or suggest dosage changes
+    - For medication questions beyond this, recommend consulting their doctor
 
     Args:
         phone: Patient phone number
-
-    Returns:
-        List of medication records with name, dosage, frequency, etc.
-        Empty list if patient not found or no medications.
     """
     patient_repo = PatientRepository()
 
@@ -42,22 +63,43 @@ def add_medication_info(
     time_of_day: Optional[str] = None,
     notes: Optional[str] = None,
 ) -> dict:
-    """
-    Add medication information for a patient.
+    """Add medication information provided by the patient to their profile.
 
-    Use this tool when a patient provides information about their medication.
-    This stores the medication details in their clinical profile.
+    WHEN TO USE:
+    - Patient tells you about a medication they're taking
+    - After a consultation when patient shares their prescription
+    - Patient wants to track a new medication
+
+    INFORMATION EXTRACTION:
+    - "Tomo estradiol 1mg" → name="Estradiol", dosage="1mg"
+    - "Cada 8 horas" → frequency="cada 8 horas"
+    - "En la mañana y en la noche" → time_of_day="mañana y noche"
+    - "Con el desayuno" → notes="con el desayuno"
+    - "Sin comida" → notes="en ayunas"
+
+    COMMON MENOPAUSE MEDICATIONS:
+    - Estradiol (hormonal therapy)
+    - Progesterona
+    - Calcio + Vitamina D
+    - Isoflavonas de soya
+    - Melatonina (for sleep)
+
+    IMPORTANT:
+    - This ADDS to existing medications, doesn't replace
+    - Only add medications the PATIENT tells you about
+    - Never suggest or recommend medications - that's doctor's job
+    - After adding, confirm: "He registrado [medicamento]. ¿Quieres configurar recordatorios?"
+
+    RESPONSE PATTERN:
+    "He registrado tu medicamento [nombre]. ¿Te gustaría que te envíe recordatorios para tomarlo?"
 
     Args:
         phone: Patient phone number
-        medication_name: Name of the medication
-        dosage: Dosage information (e.g., "500mg")
-        frequency: How often to take (e.g., "cada 8 horas")
-        time_of_day: When to take (e.g., "mañana y noche")
-        notes: Additional notes (e.g., "con comida")
-
-    Returns:
-        Dictionary with status and updated medication info.
+        medication_name: Exact name of medication (capitalize properly)
+        dosage: Dosage if provided (e.g., "1mg", "500mg", "2 tabletas")
+        frequency: How often (e.g., "una vez al día", "cada 8 horas", "2 veces al día")
+        time_of_day: When to take (e.g., "mañana", "noche", "mañana y noche")
+        notes: Special instructions (e.g., "con comida", "en ayunas", "antes de dormir")
     """
     patient_repo = PatientRepository()
 
@@ -98,21 +140,42 @@ def set_medication_reminder(
     reminder_times: list[str],
     days_of_week: Optional[list[str]] = None,
 ) -> dict:
-    """
-    Set up medication reminders for a patient.
+    """Set up medication reminders for a patient.
 
-    Use this tool when a patient wants to set up reminders for their medication.
-    Note: For MVP, this records the reminder preferences - actual scheduling
-    will be implemented later.
+    WHEN TO USE:
+    - Patient says: "quiero recordatorios", "avísame para tomar mi medicina"
+    - After adding a medication: offer to set reminders
+    - Patient explicitly requests reminder configuration
+
+    TIME FORMAT CONVERSION:
+    - "en la mañana" → ["08:00"]
+    - "en la noche" → ["20:00"]
+    - "mañana y noche" → ["08:00", "20:00"]
+    - "cada 8 horas" → ["08:00", "16:00", "00:00"]
+    - "cada 12 horas" → ["08:00", "20:00"]
+    - "a las 10" → ["10:00"]
+    - "después de comer" → ["13:00"] (approximate lunch time)
+    - "antes de dormir" → ["22:00"]
+
+    DAYS HANDLING:
+    - If not specified or "todos los días" → days_of_week=None (defaults to daily)
+    - "entre semana" → ["lunes", "martes", "miércoles", "jueves", "viernes"]
+    - "fines de semana" → ["sábado", "domingo"]
+    - Specific days: use Spanish day names in lowercase
+
+    IMPORTANT:
+    - For MVP, this records preferences - actual reminders scheduled later
+    - Always confirm the configuration: "Te recordaré tomar [medicamento] a las [horas]"
+    - If unclear about times, ASK the patient before setting
+
+    RESPONSE PATTERN:
+    "¡Listo! Te enviaré recordatorios para [medicamento] a las [hora(s)]. Si necesitas cambiarlos, solo avísame 💜"
 
     Args:
         phone: Patient phone number
-        medication_name: Name of the medication
-        reminder_times: List of times to remind (e.g., ["08:00", "20:00"])
-        days_of_week: Days to remind (optional, defaults to daily)
-
-    Returns:
-        Dictionary with reminder configuration status.
+        medication_name: Exact name of medication (must match existing medication)
+        reminder_times: List of times in HH:MM format, e.g., ["08:00", "20:00"]
+        days_of_week: Spanish day names, e.g., ["lunes", "miércoles", "viernes"], or None for daily
     """
     patient_repo = PatientRepository()
 
@@ -123,7 +186,8 @@ def set_medication_reminder(
     reminder_config = {
         "medication_name": medication_name,
         "times": reminder_times,
-        "days": days_of_week or ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"],
+        "days": days_of_week
+        or ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"],
         "active": True,
     }
 
@@ -159,18 +223,37 @@ def confirm_medication_taken(
     phone: str,
     medication_name: str,
 ) -> dict:
-    """
-    Record that a patient has taken their medication.
+    """Record that a patient has taken their medication (adherence tracking).
 
-    Use this tool when a patient confirms they took their medication
-    (e.g., in response to a reminder).
+    WHEN TO USE:
+    - Patient responds to reminder: "ya lo tomé", "listo", "sí"
+    - Patient proactively says: "ya me tomé mi medicina"
+    - After patient confirms taking medication
+
+    PATIENT CONFIRMATIONS TO DETECT:
+    - "Ya lo tomé" / "Ya me lo tomé"
+    - "Listo" / "Ok" / "Sí" (in response to reminder)
+    - "Me tomé el [medicamento]"
+    - "Ya tomé mi medicina"
+    - "✓" or similar confirmation emojis
+
+    RESPONSE PATTERN:
+    "¡Excelente! He registrado que tomaste tu [medicamento]. Sigue así 💜"
+
+    IMPORTANT:
+    - This is for ADHERENCE TRACKING, helps identify patterns
+    - For MVP, confirmation is logged - analytics will come later
+    - Creates a timestamped record of when medication was taken
+    - Be encouraging and positive when patient confirms
+
+    ADHERENCE SUPPORT:
+    - If patient confirms: Positive reinforcement
+    - If patient says they forgot: Be understanding, don't guilt
+    - If patient consistently misses: Suggest adjusting reminder times
 
     Args:
         phone: Patient phone number
-        medication_name: Name of the medication taken
-
-    Returns:
-        Dictionary with confirmation status.
+        medication_name: Name of medication taken (should match an existing medication)
     """
     from datetime import datetime
 
@@ -197,4 +280,3 @@ MEDICATION_TOOLS = [
     set_medication_reminder,
     confirm_medication_taken,
 ]
-
