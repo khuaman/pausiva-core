@@ -1124,6 +1124,74 @@ graph TD
     class CheckNewPatient,CheckPreconsulta,CheckSymptoms,F2_Check,F2_Check2,F3_Response,F3_Response2,F6_Risk,F7_Risk,F7_Check,AppointmentCompleted decision
 ```
 
+
+
+## New flow
+```mermaid
+---
+config:
+  layout: dagre
+---
+flowchart TB
+    Start(["Usuario envía primer mensaje"]) --> CheckNewPatient{"¿Es paciente nueva?"}
+    CheckNewPatient -- Sí --> F1_1["FLUJO 1.1: Mensaje Bienvenida"]
+    F1_1 --> F1_1_Action["Crear following type=business<br>Actualizar onboarding_state=collecting_info"]
+    F1_1_Action --> F1_2["FLUJO 1.2: Usuario proporciona info"]
+    F1_2 --> F1_2_Action["Extraer nombre y necesidades<br>onboarding_state=scheduling_appointment"]
+    F1_2_Action --> F1_2_Send["Enviar link Taycal<br>Ofrecer consulta gratuita"]
+    F1_2_Send --> F1_3["FLUJO 1.3: Usuario agenda en Taycal"]
+    F1_3 --> F1_3_Action["Crear appointment type=pre_consulta<br>onboarding_state=completed<br>Programar recordatorios"]
+    F1_3_Action --> F1_3_Send["Confirmar cita gratuita"]
+    AppointmentCompleted{"¿Cita completada?"} -- Sí --> F5_1["FLUJO 5.1: Enviar prescripciones"]
+    F5_1 --> F5_1_Action["Obtener plans.plan<br>Formatear prescripciones y próximos pasos"]
+    F5_1_Action --> F5_1_Send["Enviar resumen de consulta<br>Crear following type=medications"]
+    CheckSymptoms{"¿Mensaje menciona<br>síntomas?"} -- Sí --> F6_1["FLUJO 6.1: Usuario reporta síntomas"]
+    F6_1 --> F6_1_Action["Clasificar riesgo con TriageAgent<br>Crear following type=symptoms"]
+    F6_1_Action --> F6_Risk{"¿Nivel de riesgo?"}
+    F6_Risk -- HIGH: score≥80 --> F6_High["Enviar mensaje de urgencia<br>Números de emergencia<br>OPEN_RISK_ALERT"]
+    F6_Risk -- "MEDIUM: 40-79" --> F6_Med["Recomendar consulta médica<br>+ Recomendaciones de autocuidado"]
+    F6_Risk -- "LOW: 0-39" --> F6_Low["FLUJO 6.2: Recomendaciones<br>no médicas"]
+    F6_Low --> F6_2_Action["Generar recomendaciones según<br>tipo de síntoma:<br>- Bochornos<br>- Insomnio<br>- Cansancio<br>- Ansiedad<br>- Dolores"]
+    F6_2_Action --> F6_2_Send["Enviar recomendaciones personalizadas<br>UPDATE_SYMPTOM_TRACKING"]
+    F6_Med --> F6_2_Action
+    CheckSymptoms -- No --> NormalConversation["Conversación normal<br>Responder preguntas<br>Acompañamiento"]
+    CheckNewPatient --> CheckSymptoms
+    n1(["Chat le habla a paciente"]) --> CheckSymptoms
+    n2(["Usuario envía primer mensaje"]) --> AppointmentCompleted
+
+     CheckNewPatient:::decision
+     F1_1:::onboarding
+     F1_1_Action:::onboarding
+     F1_2:::onboarding
+     F1_2_Action:::onboarding
+     F1_2_Send:::onboarding
+     F1_3:::onboarding
+     F1_3_Action:::onboarding
+     F1_3_Send:::onboarding
+     AppointmentCompleted:::decision
+     F5_1:::postcita
+     F5_1_Action:::postcita
+     F5_1_Send:::postcita
+     CheckSymptoms:::decision
+     F6_1:::symptoms
+     F6_1_Action:::symptoms
+     F6_Risk:::decision
+     F6_High:::symptoms
+     F6_Med:::symptoms
+     F6_Low:::symptoms
+     F6_2_Action:::symptoms
+     F6_2_Send:::symptoms
+    classDef onboarding fill:#e1f5ff,stroke:#0288d1,stroke-width:2px
+    classDef reminders fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    classDef sales fill:#f3e5f5,stroke:#8e24aa,stroke-width:2px
+    classDef postcita fill:#e8f5e9,stroke:#43a047,stroke-width:2px
+    classDef symptoms fill:#ffebee,stroke:#e53935,stroke-width:2px
+    classDef daily fill:#fce4ec,stroke:#d81b60,stroke-width:2px
+    classDef decision fill:#fff3e0,stroke:#fb8c00,stroke-width:3px
+    classDef action fill:#f5f5f5,stroke:#616161,stroke-width:1px
+```
+
+
 ### Leyenda del Diagrama
 
 **Colores:**
