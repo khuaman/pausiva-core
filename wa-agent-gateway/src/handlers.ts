@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { whatsappClient } from "./lib/whatsapp";
-import { redis } from "./lib/redis";
-import { runAndStream, startThread } from "./actions";
+import { runAndStream, startThread, getActionType, setActionType, getUserByPhone } from "./actions";
+import { getOrCreateConversation } from "./lib/storage";
 
 // Types for WhatsApp webhook payload
 interface WhatsAppMessage {
@@ -127,21 +127,25 @@ async function handleMessage(message: WhatsAppMessage): Promise<void> {
  * Handle text messages from users
  */
 async function handleTextMessage(chatId: string, text: string): Promise<void> {
-  const threadKey = `thread-chat_id:${chatId}`;
-  let threadId = await redis.get(threadKey);
-
   // Check for start commands
   const startCommands = ["start", "hi", "hello", "hola", "/start"];
-  if (startCommands.includes(text.toLowerCase()) || !threadId) {
-    // Start a new conversation thread
-    const newThreadId = await startThread(chatId);
-    await redis.set(threadKey, newThreadId);
+  
+  // Get or create conversation (uses Supabase + Redis cache)
+  const { conversation, isNew } = await getOrCreateConversation(chatId);
+  const threadId = conversation.threadId;
+
+  // Start new conversation for start commands or new conversations
+  if (startCommands.includes(text.toLowerCase()) || isNew) {
+    await startThread(chatId);
     return;
   }
 
+  // Get user_id for authenticated users
+  const user = await getUserByPhone(chatId);
+  const userId = user?.id;
+
   // Get current action type (default to "chat")
-  const actionKey = `action-thread_id:${threadId}`;
-  const actionType = ((await redis.get(actionKey)) ?? "chat") as ActionType;
+  const actionType = (await getActionType(threadId)) as ActionType;
 
   // Process message through the multi-agent system
   await runAndStream({
@@ -149,6 +153,7 @@ async function handleTextMessage(chatId: string, text: string): Promise<void> {
     threadId,
     actionType,
     userInput: text,
+    userId,
   });
 }
 
@@ -156,8 +161,9 @@ async function handleTextMessage(chatId: string, text: string): Promise<void> {
  * Handle button/list reply interactions
  */
 async function handleButtonReply(chatId: string, buttonId: string): Promise<void> {
-  const threadKey = `thread-chat_id:${chatId}`;
-  const threadId = await redis.get(threadKey);
+  // Get conversation
+  const { conversation } = await getOrCreateConversation(chatId);
+  const threadId = conversation.threadId;
 
   if (!threadId) {
     await whatsappClient.sendTextMessage(chatId, "No hay conversación activa. Escribe 'hola' para comenzar!");
@@ -169,13 +175,20 @@ async function handleButtonReply(chatId: string, buttonId: string): Promise<void
     action_process: "process_data",
     action_query: "query_data",
     action_help: "chat",
+    // Support for dynamic action buttons (action_0, action_1, action_2)
+    action_0: "chat",
+    action_1: "process_data",
+    action_2: "query_data",
   };
 
   const actionType = actionMap[buttonId] ?? "chat";
 
-  // Store action type for this thread
-  const actionKey = `action-thread_id:${threadId}`;
-  await redis.set(actionKey, actionType);
+  // Store action type for this thread (in Redis + DB)
+  await setActionType(threadId, actionType);
+
+  // Get user_id for authenticated users
+  const user = await getUserByPhone(chatId);
+  const userId = user?.id;
 
   // Context messages for each action (Spanish)
   const contextMessages: Record<string, string> = {
@@ -190,6 +203,6 @@ async function handleButtonReply(chatId: string, buttonId: string): Promise<void
     threadId,
     actionType,
     userInput: contextMessages[actionType] ?? "",
+    userId,
   });
 }
-

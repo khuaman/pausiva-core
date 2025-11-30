@@ -1,10 +1,10 @@
 # CLAUDE.md
- 
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
-This is a WhatsApp webhook service that integrates with a multi-agent LangGraph system. The service receives WhatsApp messages via webhooks, manages conversation threads with Redis, and streams responses from a LangGraph-powered multi-agent system back to users via WhatsApp.
+This is a WhatsApp webhook service that integrates with the Pausiva AI multi-agent system. The service receives WhatsApp messages via webhooks, manages conversation threads with Supabase (PostgreSQL) as the source of truth and Redis as a cache layer, and sends responses from the FastAPI-powered AI system back to users via WhatsApp.
 
 ## Architecture
 
@@ -13,21 +13,24 @@ This is a WhatsApp webhook service that integrates with a multi-agent LangGraph 
 src/
 ├── index.ts           - Express app setup and server initialization
 ├── handlers.ts        - Webhook handlers (verification, message processing)
-├── actions.ts         - Thread management and LangGraph streaming
+├── actions.ts         - Thread management and FastAPI communication
 ├── schemas.ts         - Zod schemas for data validation
 └── lib/
     ├── whatsapp.ts    - Wapi.js client wrapper for sending messages
-    ├── fastapi.ts     - FastAPI client for ai-multiagent (primary)
-    ├── langgraph.ts   - LangGraph SDK client initialization (fallback)
-    └── redis.ts       - Redis client for session storage
+    ├── fastapi.ts     - FastAPI client for ai-multiagent
+    ├── db.ts          - Drizzle ORM client for Supabase
+    ├── schema.ts      - Drizzle schema definitions
+    ├── storage.ts     - Storage layer (Supabase + Redis caching)
+    └── redis.ts       - Redis client for caching
 ```
 
 ### Core Flow
 1. **Webhook Reception** (`src/handlers.ts`): Express server receives WhatsApp webhook events (verification & messages)
-2. **Thread Management** (`src/actions.ts`): Creates/retrieves conversation threads, maps to LangGraph threads
-3. **Session Storage** (`src/lib/redis.ts`): Redis stores thread IDs (keyed by chat ID) and action types (keyed by thread ID)
-4. **Agent Streaming** (`src/actions.ts`): Streams user input to LangGraph multi-agent system and processes chunks
-5. **Response Delivery** (`src/lib/whatsapp.ts`): Sends agent responses back via WhatsApp using Wapi.js
+2. **User Lookup** (`src/lib/storage.ts`): Fetches user_id from `public.users` by phone number
+3. **Thread Management** (`src/lib/storage.ts`): Creates/retrieves conversations in Supabase, caches in Redis
+4. **AI Processing** (`src/actions.ts`): Sends messages to FastAPI multi-agent system
+5. **Message Persistence** (`src/lib/storage.ts`): Saves user and assistant messages to Supabase
+6. **Response Delivery** (`src/lib/whatsapp.ts`): Sends agent responses back via WhatsApp using Wapi.js
 
 ### Endpoints
 - `GET /` - Health check endpoint (returns `{"status": "ok", "service": "whatsapp-agent-api"}`)
@@ -36,34 +39,29 @@ src/
 
 ### Key Patterns
 
-**Thread ID Mapping**:
-- Redis key `thread-chat_id:{chatId}` stores the LangGraph thread ID for each WhatsApp conversation
-- Redis key `action-thread_id:{threadId}` stores the current action type (chat/process_data/query_data)
+**Data Storage**:
+- **Supabase (PostgreSQL)**: Source of truth for conversations, messages, and user data
+- **Redis**: Caching layer for fast lookups (thread IDs, action types, user info)
+- Tables managed by `platform/supabase/migrations/`:
+  - `public.users` - User profiles with phone numbers
+  - `public.patients` - Patient data linked to users
+  - `public.conversations` - AI chat sessions
+  - `public.messages` - Individual messages in conversations
+
+**Thread/Conversation Mapping**:
+- Each WhatsApp phone number maps to a conversation in Supabase
+- `thread_id` (UUID) uniquely identifies each conversation
+- Only one active conversation per phone number (enforced by partial unique index)
 
 **Action Types**:
 - `chat`: General conversation with the agent
-- `process_data`: Data recording workflow (expects structured data parsing)
-- `query_data`: Data querying workflow (expects SQL query execution)
-
-**AI Backend Priority**:
-1. **FastAPI** (primary): If `FASTAPI_URL` is set, calls the ai-multiagent `/chat/message` endpoint
-2. **LangGraph** (fallback): If FastAPI fails or isn't configured, uses LangGraph SDK
-3. **Echo mode**: If neither is configured, operates in echo mode for testing
+- `process_data`: Appointment scheduling workflow
+- `query_data`: Data querying workflow
 
 **FastAPI Integration** (`src/lib/fastapi.ts`):
-- Calls `POST /chat/message` with `thread_id`, `phone`, and `message`
+- Calls `POST /chat/message` with `thread_id`, `phone`, `message`, and `user_id`
 - Calls `POST /chat/checkin` to start new conversations
 - Returns structured response with `reply_text`, `risk_level`, `agent_used`, etc.
-
-**Streaming Chunk Processing**:
-- LangGraph streams chunks with agent outputs keyed by action type (actions.ts:66-111)
-- Stream mode: `"updates"` - receives incremental updates as they're generated
-- Chunks are collected and processed in batch after stream completes
-- Response patterns:
-  - `data[actionType]?.output` → text responses from chat/process_data/query_data agents
-  - `data.parse_data?.parsed_data` → structured data from processor agent
-  - `data.format_results?.output` → formatted query results from SQL agent
-- Each agent output triggers a separate WhatsApp message send
 
 ## Development Commands
 
@@ -85,6 +83,12 @@ npm start
 **Type Checking**:
 ```bash
 npx tsc --noEmit
+```
+
+**Drizzle Commands**:
+```bash
+npm run db:generate  # Generate migrations from schema
+npm run db:push      # Push schema changes to database
 ```
 
 **Docker Development**:
@@ -113,19 +117,17 @@ WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
 WHATSAPP_WEBHOOK_SECRET=your_webhook_verification_token
 ```
 
-**FastAPI Backend** - Recommended (ai-multiagent):
+**FastAPI Backend** - Required (ai-multiagent):
 ```
 FASTAPI_URL=http://localhost:8099
 ```
 
-**LangGraph** - Optional fallback (used if FastAPI is not configured):
+**Database (Supabase)** - Required:
 ```
-LANGGRAPH_API_URL=https://your-langgraph-api-url
-LANGSMITH_API_KEY=your_langsmith_api_key
-ASSISTANT_ID=your_assistant_graph_name
+DATABASE_URL=postgresql://postgres:password@localhost:54322/postgres
 ```
 
-**Redis** - Defaults to localhost if not set:
+**Redis** - Required for caching (defaults to localhost if not set):
 ```
 REDIS_URL=redis://localhost:6379
 ```
@@ -133,11 +135,6 @@ REDIS_URL=redis://localhost:6379
 **Server**:
 ```
 PORT=3000
-```
-
-**Additional** (if using Tydical integration):
-```
-TYDICAL_PERSONAL_ACCESS_TOKEN=your_tydical_token
 ```
 
 ## Important Implementation Details
@@ -149,21 +146,54 @@ TYDICAL_PERSONAL_ACCESS_TOKEN=your_tydical_token
 
 **Message Handling**:
 - Start commands (`start`, `hi`, `hello`, `hola`, `/start`) always create a new thread
-- Interactive button replies map to action types via `actionMap` in handlers.ts:163
+- Interactive button replies map to action types via `actionMap` in handlers.ts
 - All webhook responses must return 200 status to acknowledge receipt to Meta
 - **Language**: Messages and UI are in Spanish (context messages, button labels, etc.)
-- Button mappings (handlers.ts:163):
+- Button mappings:
   - `action_process` → "process_data" (Agendar Cita)
   - `action_query` → "query_data" (Consultar Datos)
   - `action_help` → "chat" (Obtener Ayuda)
 
+**User Identification**:
+- On each message, the system looks up `user_id` from `public.users` by phone number
+- If found, `user_id` is passed to FastAPI for personalized responses
+- If not found, conversation continues without user_id (anonymous mode)
+
 **Data Validation**:
-- `recordSchema` in `src/schemas.ts` defines the expected structure for parsed appointment/record data
-  - Includes fields: `user_email`, `user_id`, `items[]`, `created_at`
-  - Each item has: `name`, `quantity`, `value`, `category`
+- `recordSchema` in `src/schemas.ts` defines the expected structure for parsed data
 - `whatsAppMessageSchema` validates incoming WhatsApp webhook messages
-- TODO: Actual validation and database insertion is not yet implemented (see actions.ts:137)
 - Schema uses Zod for runtime type validation
+
+**Drizzle ORM**:
+- Uses `postgres` driver for Supabase connection
+- Schema definitions in `src/lib/schema.ts` mirror `platform/` migrations
+- Read-only access to `users` and `patients` tables
+- Read-write access to `conversations` and `messages` tables
+
+## Database Schema
+
+The wa-agent-gateway uses tables managed by `platform/supabase/migrations/`:
+
+**conversations** (managed by this service):
+- `id` (uuid) - Primary key
+- `thread_id` (text) - Unique identifier for AI backend
+- `patient_id` (uuid) - FK to patients (nullable)
+- `phone` (text) - WhatsApp phone number
+- `channel` (enum) - 'whatsapp', 'web', 'app'
+- `status` (enum) - 'active', 'ended', 'archived'
+- `action_type` (text) - Current action type
+- `agent_used` (text) - Last agent that responded
+- `message_count` (int) - Number of messages
+- `risk_level` (text) - Current risk assessment
+- `risk_score` (int) - Risk score 0-100
+
+**messages** (managed by this service):
+- `id` (uuid) - Primary key
+- `conversation_id` (uuid) - FK to conversations
+- `external_id` (text) - WhatsApp message ID
+- `role` (enum) - 'user', 'assistant', 'system'
+- `content` (text) - Message content
+- `agent_used` (text) - AI agent that generated the message
 
 ## Deployment
 
@@ -184,13 +214,15 @@ TYDICAL_PERSONAL_ACCESS_TOKEN=your_tydical_token
 
 **Runtime**:
 - `@wapijs/wapi.js` - WhatsApp Business API client
-- `@langchain/langgraph-sdk` - LangGraph streaming client (optional)
+- `drizzle-orm` - TypeScript ORM for PostgreSQL
+- `postgres` - PostgreSQL driver for Drizzle
 - `express` - Web server framework
-- `redis` - Redis client for session storage
-- `uuid` - UUID generation for fallback thread IDs
+- `redis` - Redis client for caching
+- `uuid` - UUID generation for thread IDs
 - `zod` - Runtime type validation
 
 **Development**:
+- `drizzle-kit` - Drizzle CLI for migrations
 - `typescript` - TypeScript compiler
 - `tsx` - TypeScript execution and watch mode
 - `@types/*` - TypeScript definitions

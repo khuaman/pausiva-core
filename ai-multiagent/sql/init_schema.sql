@@ -1,6 +1,25 @@
 -- ============================================
--- AI Multiagent Schema Initialization
+-- DEPRECATED: AI Multiagent Schema Initialization
 -- ============================================
+-- 
+-- ⚠️  THIS FILE IS DEPRECATED
+-- 
+-- The source of truth for database schema is now:
+--   platform/supabase/migrations/
+--
+-- Key tables have been consolidated:
+--   - conversations → public.conversations (platform migration)
+--   - messages → public.messages (platform migration)
+--   - patients → public.patients (platform migration)
+--   - users → public.users (platform migration)
+--
+-- The ai-multiagent service should query the public schema
+-- managed by platform/ Supabase migrations.
+--
+-- This file is kept for reference only. Do NOT run this script.
+-- ============================================
+--
+-- ORIGINAL DESCRIPTION:
 -- This script creates a separate schema for AI multiagent tables
 -- Run this in Supabase SQL Editor (Dashboard > SQL Editor)
 --
