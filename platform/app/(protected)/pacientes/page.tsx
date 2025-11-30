@@ -236,15 +236,6 @@ export default function PacientesPage() {
                         <div className="flex items-center gap-2">
                           <Button
                             size="sm"
-                            variant="outline"
-                            onClick={() => handleContactWhatsApp(patient.profile.phone)}
-                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                          >
-                            <MessageCircle className="h-4 w-4 mr-1" />
-                            Contactar
-                          </Button>
-                          <Button
-                            size="sm"
                             variant="ghost"
                             onClick={() => router.push(`/paciente/${patient.id}`)}
                           >
