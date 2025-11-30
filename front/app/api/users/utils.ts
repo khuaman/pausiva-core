@@ -23,13 +23,17 @@ export async function provisionUserAccount(
     ? explicitPassword.trim()
     : generateTemporaryPassword();
 
-  const { data, error } = await supabase.auth.admin.createUser({
+  const { data, error } = await supabase.auth.signUp({
     email: profile.email,
     password: fallbackPassword,
-    email_confirm: true,
-    user_metadata: {
-      role,
-      full_name: profile.fullName,
+    options: {
+      data: {
+        role,
+        full_name: profile.fullName,
+        phone: profile.phone ?? null,
+        birth_date: profile.birthDate ?? null,
+        picture_url: profile.pictureUrl ?? null,
+      },
     },
   });
 
