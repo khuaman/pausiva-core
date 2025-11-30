@@ -199,4 +199,62 @@ export async function GET(
   }
 }
 
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const supabase = getServiceSupabaseClient();
+    const { id } = await params;
+    const body = await request.json();
+
+    // Validate that the appointment exists
+    const existingAppointment = await fetchAppointmentById(supabase, id);
+    if (!existingAppointment) {
+      return NextResponse.json({ error: 'Appointment not found.' }, { status: 404 });
+    }
+
+    // Validate status if provided
+    if (body.status) {
+      const validStatuses = ['scheduled', 'completed', 'cancelled', 'no_show', 'rescheduled'];
+      if (!validStatuses.includes(body.status)) {
+        return NextResponse.json(
+          { error: 'Invalid status value.' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Update the appointment
+    const { data, error } = await supabase
+      .from('appointments')
+      .update({
+        status: body.status,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[api/appointments/[id]] Error updating appointment', error);
+      throw error;
+    }
+
+    // Fetch the updated appointment with full details
+    const updatedAppointment = await fetchAppointmentById(supabase, id);
+
+    return NextResponse.json({ 
+      data: updatedAppointment,
+      message: 'Appointment status updated successfully.' 
+    });
+  } catch (error) {
+    console.error('[api/appointments/[id]] Error updating appointment', error);
+    return NextResponse.json(
+      { error: 'Unexpected error updating appointment.' },
+      { status: 500 }
+    );
+  }
+}
+
 

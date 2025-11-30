@@ -292,3 +292,124 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = getServiceSupabaseClient();
+    const { searchParams } = new URL(request.url);
+    const idParam = searchParams.get('id');
+
+    if (!idParam) {
+      return NextResponse.json(
+        { error: 'Patient ID is required.' },
+        { status: 400 }
+      );
+    }
+
+    // First, verify the patient exists
+    const { data: existingPatient, error: fetchError } = await supabase
+      .from('patients')
+      .select('id')
+      .eq('id', idParam)
+      .maybeSingle();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('[api/users/patients] Error checking patient existence', fetchError);
+      return NextResponse.json(
+        { error: 'Error verifying patient existence.' },
+        { status: 500 }
+      );
+    }
+
+    if (!existingPatient) {
+      return NextResponse.json(
+        { error: 'Patient not found.' },
+        { status: 404 }
+      );
+    }
+
+    // Check for dependencies before deletion
+    const [
+      { count: appointmentsCount },
+      { count: followingsCount },
+      { count: plansCount }
+    ] = await Promise.all([
+      supabase
+        .from('appointments')
+        .select('*', { count: 'exact', head: true })
+        .eq('patient_id', idParam),
+      supabase
+        .from('followings')
+        .select('*', { count: 'exact', head: true })
+        .eq('patient_id', idParam),
+      supabase
+        .from('plans')
+        .select('*', { count: 'exact', head: true })
+        .eq('patient_id', idParam),
+    ]);
+
+    const totalDependencies = (appointmentsCount || 0) + (followingsCount || 0) + (plansCount || 0);
+
+    if (totalDependencies > 0) {
+      const dependencies = [];
+      if (appointmentsCount) dependencies.push(`${appointmentsCount} cita${appointmentsCount > 1 ? 's' : ''}`);
+      if (followingsCount) dependencies.push(`${followingsCount} seguimiento${followingsCount > 1 ? 's' : ''}`);
+      if (plansCount) dependencies.push(`${plansCount} plan${plansCount > 1 ? 'es' : ''}`);
+
+      return NextResponse.json(
+        {
+          error: `No se puede eliminar el paciente porque tiene registros asociados: ${dependencies.join(', ')}.`,
+          details: {
+            hasAppointments: !!appointmentsCount,
+            hasFollowings: !!followingsCount,
+            hasPlans: !!plansCount,
+            appointmentsCount: appointmentsCount || 0,
+            followingsCount: followingsCount || 0,
+            plansCount: plansCount || 0,
+          },
+        },
+        { status: 409 }
+      );
+    }
+
+    // Delete the patient record
+    const { error: deletePatientError } = await supabase
+      .from('patients')
+      .delete()
+      .eq('id', idParam);
+
+    if (deletePatientError) {
+      console.error('[api/users/patients] Error deleting patient record', deletePatientError);
+      
+      // Check if it's a foreign key constraint error
+      if (deletePatientError.code === '23503') {
+        return NextResponse.json(
+          {
+            error: 'No se puede eliminar el paciente porque tiene registros asociados en el sistema.',
+            details: { hasDependencies: true },
+          },
+          { status: 409 }
+        );
+      }
+      
+      return NextResponse.json(
+        { error: 'Could not delete patient record.' },
+        { status: 500 }
+      );
+    }
+
+    // Delete the user account (auth)
+    await teardownProvisionedUser(supabase, idParam);
+
+    return NextResponse.json(
+      { message: 'Patient deleted successfully.' },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('[api/users/patients] Error deleting patient', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unexpected error deleting patient.';
+    return NextResponse.json(
+      { error: errorMessage },
+      { status: 500 }
+    );
+  }
+}

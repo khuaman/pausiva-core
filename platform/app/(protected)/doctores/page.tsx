@@ -6,20 +6,84 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useDoctors } from '@/hooks/use-doctors';
 import { useDataRefetch } from '@/contexts/DataRefetchContext';
-import { Search, Filter, AlertCircle, Mail, Phone, Stethoscope, Users } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Search, Filter, AlertCircle, Mail, Phone, Stethoscope, Users, Trash2 } from 'lucide-react';
 
 export default function DoctoresPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const { doctors, loading, error, refetch } = useDoctors({ limit: 50 });
   const { registerDoctorsRefetch } = useDataRefetch();
+  const { toast } = useToast();
+  const [doctorToDelete, setDoctorToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Register the refetch function so AdminCreateMenu can trigger it
   useEffect(() => {
     registerDoctorsRefetch(refetch);
   }, [refetch, registerDoctorsRefetch]);
+
+  const handleDeleteDoctor = async () => {
+    if (!doctorToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/users/doctors?id=${doctorToDelete}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: 'Doctor eliminado',
+          description: 'El doctor ha sido eliminado exitosamente.',
+        });
+        refetch();
+      } else if (response.status === 409 && data.details) {
+        // Handle dependency conflict
+        const details = data.details;
+        let message = data.error;
+        
+        if (details.appointmentsCount) {
+          message += ` Tiene ${details.appointmentsCount} cita${details.appointmentsCount > 1 ? 's' : ''} registrada${details.appointmentsCount > 1 ? 's' : ''}.`;
+        }
+        
+        toast({
+          title: 'No se puede eliminar',
+          description: message,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: data.error || 'No se pudo eliminar el doctor.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Ocurrió un error al eliminar el doctor.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+      setDoctorToDelete(null);
+    }
+  };
 
   const filteredDoctors = useMemo(() => {
     return doctors.filter((doctor) =>
@@ -162,13 +226,23 @@ export default function DoctoresPage() {
                       {doctor.metadata.cmp}
                     </td>
                     <td className="px-4 py-4">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => router.push(`/doctor/${doctor.id}`)}
-                      >
-                        Ver Perfil
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => router.push(`/doctor/${doctor.id}`)}
+                        >
+                          Ver Perfil
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDoctorToDelete(doctor.id)}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -177,6 +251,28 @@ export default function DoctoresPage() {
           </div>
         )}
       </main>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!doctorToDelete} onOpenChange={(open) => !open && setDoctorToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Se eliminará permanentemente el doctor y todos sus datos asociados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteDoctor}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Eliminando...' : 'Eliminar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

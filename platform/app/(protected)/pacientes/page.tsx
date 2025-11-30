@@ -7,20 +7,78 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { usePatients } from '@/hooks/use-patients';
 import { useDataRefetch } from '@/contexts/DataRefetchContext';
-import { Search, Filter, AlertCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Search, Filter, AlertCircle, Trash2 } from 'lucide-react';
 
 export default function PacientesPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const { patients, loading, error, refetch } = usePatients({ limit: 50 });
   const { registerPatientsRefetch } = useDataRefetch();
+  const { toast } = useToast();
+  const [patientToDelete, setPatientToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Register the refetch function so AdminCreateMenu can trigger it
   useEffect(() => {
     registerPatientsRefetch(refetch);
   }, [refetch, registerPatientsRefetch]);
+
+  const handleDeletePatient = async () => {
+    if (!patientToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/users/patients?id=${patientToDelete}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: 'Paciente eliminado',
+          description: 'El paciente ha sido eliminado exitosamente.',
+        });
+        refetch();
+      } else if (response.status === 409 && data.details) {
+        // Handle dependency conflict - show detailed message
+        toast({
+          title: 'No se puede eliminar',
+          description: data.error,
+          variant: 'destructive',
+          duration: 5000,
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: data.error || 'No se pudo eliminar el paciente.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Ocurrió un error al eliminar el paciente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+      setPatientToDelete(null);
+    }
+  };
 
   // Calculate age from birth date
   const calculateAge = (birthDate: string | null) => {
@@ -213,13 +271,23 @@ export default function PacientesPage() {
                         </Badge>
                       </td>
                       <td className="px-4 py-4">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => router.push(`/paciente/${patient.id}`)}
-                        >
-                          Ver Perfil
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => router.push(`/paciente/${patient.id}`)}
+                          >
+                            Ver Perfil
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setPatientToDelete(patient.id)}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -229,6 +297,28 @@ export default function PacientesPage() {
           </div>
         )}
       </main>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!patientToDelete} onOpenChange={(open) => !open && setPatientToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Se eliminará permanentemente el paciente y todos sus datos asociados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePatient}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Eliminando...' : 'Eliminar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
