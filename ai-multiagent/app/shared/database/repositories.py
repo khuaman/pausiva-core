@@ -218,8 +218,21 @@ class FollowingRepository:
         message_count: int = 1,
         appointment_id: str | None = None,
         transcript_url: str | None = None,
+        conversation_id: str | None = None,
     ) -> Optional[dict]:
-        """Create a new following record."""
+        """Create a new following record.
+
+        Args:
+            patient_id: The patient's UUID
+            following_type: Type of following (emotional, symptoms, medications, business, other)
+            summary: Brief description of the interaction
+            severity_score: 0-10 severity score
+            is_urgent: Whether this requires immediate attention
+            message_count: Number of messages in this interaction
+            appointment_id: Optional linked appointment UUID
+            transcript_url: Optional URL to conversation transcript
+            conversation_id: Optional conversation UUID for CMS mapping
+        """
         if not self.client:
             return None
 
@@ -241,6 +254,8 @@ class FollowingRepository:
                 data["appointment_id"] = appointment_id
             if transcript_url:
                 data["transcript_url"] = transcript_url
+            if conversation_id:
+                data["conversation_id"] = conversation_id
 
             result = self.client.table("followings").insert(data).execute()
             return result.data[0] if result.data else None
@@ -377,13 +392,23 @@ class AppointmentRepository:
         scheduled_at: datetime,
         appointment_type: str = "consulta",
         notes: str | None = None,
+        conversation_id: str | None = None,
     ) -> Optional[dict]:
-        """Create a new appointment."""
+        """Create a new appointment.
+
+        Args:
+            patient_id: The patient's UUID
+            doctor_id: The doctor's UUID
+            scheduled_at: Appointment datetime
+            appointment_type: Type of appointment (pre_consulta, consulta)
+            notes: Optional notes for the appointment
+            conversation_id: Optional conversation UUID for CMS mapping
+        """
         if not self.client:
             return None
 
         try:
-            data = {
+            data: dict[str, Any] = {
                 "id": str(uuid4()),
                 "patient_id": patient_id,
                 "doctor_id": doctor_id,
@@ -394,6 +419,9 @@ class AppointmentRepository:
                 "created_at": datetime.now().isoformat(),
                 "updated_at": datetime.now().isoformat(),
             }
+
+            if conversation_id:
+                data["conversation_id"] = conversation_id
 
             result = self.client.table("appointments").insert(data).execute()
             return result.data[0] if result.data else None

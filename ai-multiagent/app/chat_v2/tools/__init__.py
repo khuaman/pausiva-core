@@ -3,23 +3,16 @@
 from .appointments import (
     APPOINTMENT_TOOLS,
     cancel_appointment_request,
-    create_appointment_request,
     get_appointment_info,
-    get_appointments,
+    get_available_appointments,
     get_next_appointment,
+    schedule_meeting,
 )
 from .followings import (
     FOLLOWING_TOOLS,
     create_following,
     get_followings,
     get_urgent_followings,
-)
-from .medication import (
-    MEDICATION_TOOLS,
-    add_medication_info,
-    confirm_medication_taken,
-    get_medications,
-    set_medication_reminder,
 )
 from .patient import (
     PATIENT_TOOLS,
@@ -44,8 +37,6 @@ ALL_TOOLS = [
     *TRIAGE_TOOLS,
     # Appointment tools
     *APPOINTMENT_TOOLS,
-    # Medication tools
-    *MEDICATION_TOOLS,
 ]
 
 __all__ = [
@@ -65,18 +56,12 @@ __all__ = [
     "get_symptom_history",
     "TRIAGE_TOOLS",
     # Appointments
-    "get_appointments",
+    "get_available_appointments",
     "get_next_appointment",
-    "create_appointment_request",
+    "schedule_meeting",
     "get_appointment_info",
     "cancel_appointment_request",
     "APPOINTMENT_TOOLS",
-    # Medication
-    "get_medications",
-    "add_medication_info",
-    "set_medication_reminder",
-    "confirm_medication_taken",
-    "MEDICATION_TOOLS",
     # Combined
     "ALL_TOOLS",
 ]

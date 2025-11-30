@@ -42,7 +42,6 @@ class MessageResponse(BaseModel):
     risk_level: str = Field(default="none")
     risk_score: int = Field(default=0)
     symptom_summary: str = Field(default="")
-    medication_schedule: list[dict] = Field(default_factory=list)
     appointments: list[dict] = Field(default_factory=list)
     follow_up_questions: list[str] = Field(default_factory=list)
     agent_used: str = Field(default="chat_v2")
