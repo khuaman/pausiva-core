@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    const typedData = (data ?? []) as SupabasePlanRow[];
+    const typedData = (data ?? []) as unknown as SupabasePlanRow[];
     const mapped = typedData.map(mapPlan);
 
     return NextResponse.json({

@@ -19,7 +19,7 @@ export type SupabaseFollowingRow = {
     status: AppointmentStatus;
     scheduled_at: string | null;
     notes: string | null;
-  } | null;
+  }[] | null;
 };
 
 export type ApiFollowing = {
