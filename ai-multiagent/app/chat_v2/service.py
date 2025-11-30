@@ -79,7 +79,6 @@ class ChatServiceV2:
             risk_level=result.get("risk_level", RiskLevel.NONE),
             risk_score=result.get("risk_score", 0),
             symptom_summary=result.get("symptom_summary", ""),
-            medication_schedule=result.get("medication_schedule", []),
             appointments=result.get("appointments", []),
             follow_up_questions=result.get("follow_up_questions", []),
             agent_used="chat_v2",

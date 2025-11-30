@@ -39,7 +39,6 @@ class AgentState(TypedDict, total=False):
     risk_level: str
     risk_score: int
     symptom_summary: str
-    medication_schedule: list[dict]
     appointments: list[dict]
     follow_up_questions: list[str]
     actions: list[str]

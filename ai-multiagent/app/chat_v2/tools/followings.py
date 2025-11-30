@@ -18,6 +18,7 @@ def create_following(
     severity_score: Optional[int] = None,
     is_urgent: bool = False,
     appointment_id: Optional[str] = None,
+    conversation_id: Optional[str] = None,
 ) -> Optional[dict]:
     """Create a following record to track patient interactions for the dashboard.
 
@@ -32,12 +33,12 @@ def create_following(
        - Use the risk_score from assess_symptoms as severity_score
        - Set is_urgent=True if risk_level was "high"
 
-    3. Post-appointment: type="medications"
+    3. Post-appointment: type="business"
        - After sending prescriptions: summary="Prescripciones enviadas"
        - Link to appointment_id
 
     FOLLOWING TYPES:
-    - "business": Onboarding, sales, administrative interactions
+    - "business": Onboarding, sales, administrative interactions, appointments
     - "symptoms": Physical symptom reports (FLUJO 6)
     - "emotional": Emotional check-ins, anxiety, mood-related
     - "medications": Prescription-related, medication reminders
@@ -53,6 +54,7 @@ def create_following(
     - Following records appear in the staff dashboard for patient monitoring
     - is_urgent=True triggers an alert in the dashboard (OPEN_RISK_ALERT)
     - summary should be concise but informative (max ~200 chars)
+    - conversation_id links this following to the chat conversation in CMS
 
     TOOL COMBINATION - Typical sequences:
     - assess_symptoms() → create_following(type="symptoms", severity_score=X)
@@ -65,6 +67,7 @@ def create_following(
         severity_score: 0-100, use result from assess_symptoms when applicable
         is_urgent: True if requires immediate staff attention (HIGH risk symptoms)
         appointment_id: Link to related appointment UUID if applicable
+        conversation_id: Conversation UUID for CMS mapping (from thread_id)
     """
     patient_repo = PatientRepository()
     following_repo = FollowingRepository()
@@ -83,6 +86,7 @@ def create_following(
         severity_score=severity_score,
         is_urgent=is_urgent,
         appointment_id=appointment_id,
+        conversation_id=conversation_id,
     )
 
 
