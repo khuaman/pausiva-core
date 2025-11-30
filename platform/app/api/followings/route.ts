@@ -21,6 +21,7 @@ const FOLLOWINGS_SELECT = `
   summary,
   severity_score,
   is_urgent,
+  conversation_id,
   created_at,
   appointment:appointments!followings_appointment_id_fkey (
     id,
@@ -56,6 +57,7 @@ function mapFollowing(row: SupabaseFollowingRow): ApiFollowing {
     summary: row.summary,
     severityScore: row.severity_score,
     isUrgent: row.is_urgent,
+    conversationId: row.conversation_id,
     createdAt: row.created_at,
     appointment: appointmentData
       ? {
