@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: "Pausiva - Dashboard Médico",
   description: "Plataforma integral de atención médica para mujeres en perimenopausia y menopausia",
   icons: {
-    icon: "/favicon.png",
+    icon: "/favicon.ico",
   },
 };
 
