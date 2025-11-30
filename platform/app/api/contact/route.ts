@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceSupabaseClient } from '@/utils/supabase/service';
 import { getAuthenticatedUser, hasFullAccess } from '../auth-helpers';
 
-const EXTERNAL_API_URL = 'https://key-legal-tahr.ngrok-free.app/api/send-message';
-const EXTERNAL_API_KEY = '1234567890';
+const EXTERNAL_API_URL = process.env.AGENT_ENDPOINT || '';
+const EXTERNAL_API_KEY = process.env.AGENT_API_KEY || '';
+
+if (!EXTERNAL_API_URL || !EXTERNAL_API_KEY) {
+  throw new Error('AGENT_ENDPOINT and AGENT_API_KEY must be set');
+}
 
 type ContactRequestBody = {
   patientId?: string;
@@ -72,6 +76,17 @@ export async function POST(request: NextRequest) {
     // Clean phone number (remove any non-digit characters except +)
     const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
 
+    const body = {
+      phone: cleanPhone,
+      message: message,
+      message_type: 'text',
+      metadata: {
+        source: 'daily_checkup',
+        reference_id: appointmentId,
+      },
+    };
+
+    console.log('body', body);
     // Send message to external API
     const externalResponse = await fetch(EXTERNAL_API_URL, {
       method: 'POST',
@@ -79,17 +94,7 @@ export async function POST(request: NextRequest) {
         'X-API-Key': EXTERNAL_API_KEY,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        phone: cleanPhone,
-        message: message,
-        message_type: 'text',
-        metadata: {
-          source: 'daily_checkup',
-          reference_id: appointmentId,
-          triggered_by: authUser.email || authUser.id,
-          scheduled_at: scheduledAt,
-        },
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!externalResponse.ok) {

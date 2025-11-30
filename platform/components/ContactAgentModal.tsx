@@ -4,7 +4,6 @@ import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -92,32 +91,33 @@ export function ContactAgentModal({
             <MessageCircle className="h-6 w-6 text-primary" />
             Checkeo Diario - Contactar Paciente
           </DialogTitle>
-          <DialogDescription className="pt-2 space-y-2">
-            <p>
-              Está a punto de activar al agente de IA para realizar un checkeo diario del paciente <span className="font-semibold text-foreground">{patientName}</span> vía WhatsApp.
-            </p>
-            <div className="bg-muted/50 p-4 rounded-lg space-y-3 mt-4">
-              <div className="flex items-start gap-3">
-                <Phone className="h-5 w-5 text-primary mt-0.5" />
-                <div className="flex-1">
-                  <p className="font-medium text-foreground">¿Qué hará el agente?</p>
-                  <ul className="text-sm space-y-1 mt-1 text-muted-foreground">
-                    <li>• Contactará al paciente por WhatsApp</li>
-                    <li>• Preguntará sobre su estado de salud actual</li>
-                    <li>• Consultará sobre síntomas y molestias</li>
-                    <li>• Evaluará su evolución clínica</li>
-                    <li>• Registrará la información para seguimiento</li>
-                  </ul>
-                </div>
+        </DialogHeader>
+        
+        <div className="pt-2 space-y-2">
+          <p className="text-sm text-muted-foreground">
+            Está a punto de activar al agente de IA para realizar un checkeo diario del paciente <span className="font-semibold text-foreground">{patientName}</span> vía WhatsApp.
+          </p>
+          <div className="bg-muted/50 p-4 rounded-lg space-y-3">
+            <div className="flex items-start gap-3">
+              <Phone className="h-5 w-5 text-primary mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium text-foreground">¿Qué hará el agente?</p>
+                <ul className="text-sm space-y-1 mt-1 text-muted-foreground">
+                  <li>• Contactará al paciente por WhatsApp</li>
+                  <li>• Preguntará sobre su estado de salud actual</li>
+                  <li>• Consultará sobre síntomas y molestias</li>
+                  <li>• Evaluará su evolución clínica</li>
+                  <li>• Registrará la información para seguimiento</li>
+                </ul>
               </div>
             </div>
-            {!patientPhone && (
-              <p className="text-destructive text-sm mt-2">
-                ⚠️ Este paciente no tiene un número de teléfono registrado.
-              </p>
-            )}
-          </DialogDescription>
-        </DialogHeader>
+          </div>
+          {!patientPhone && (
+            <p className="text-destructive text-sm mt-2">
+              ⚠️ Este paciente no tiene un número de teléfono registrado.
+            </p>
+          )}
+        </div>
         <DialogFooter>
           <Button
             variant="outline"
