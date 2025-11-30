@@ -3,6 +3,7 @@ import {
   isFastAPIConfigured, 
   sendMessage, 
   sendMessageV2,
+  sendBatchedMessageV2,
   sendCheckin, 
   type FastAPIMessageResponse,
   type FastAPIMessageResponseV2 
@@ -16,6 +17,7 @@ import {
   setActionType,
   getActionType,
 } from "./lib/storage";
+import type { BufferedMessage } from "./lib/debouncer";
 
 type ActionType = "chat" | "process_data" | "query_data";
 
@@ -119,6 +121,7 @@ async function sendWelcomeMessageV2(chatId: string, response: FastAPIMessageResp
 
 /**
  * Stream a conversation turn through the FastAPI V2 single agent system
+ * @deprecated Use runAndStreamBatched instead for better handling of multiple messages
  */
 export async function runAndStream({
   chatId,
@@ -175,6 +178,97 @@ export async function runAndStream({
     riskLevel: response.risk_level,
     riskScore: response.risk_score,
     messageCount: conversation.messageCount + 2, // user + assistant
+  });
+
+  // Handle the response
+  await handleFastAPIResponse({ chatId, response });
+}
+
+/**
+ * Process batched messages through the FastAPI V2 single agent system
+ * Handles multiple user messages that were buffered during debounce window
+ */
+export async function runAndStreamBatched({
+  chatId,
+  threadId,
+  messages,
+  combinedUserInput,
+  actionType = "chat",
+  userId,
+}: {
+  chatId: string;
+  threadId: string;
+  messages: BufferedMessage[];
+  combinedUserInput: string;
+  actionType?: ActionType;
+  userId?: string;
+}): Promise<void> {
+  if (!isFastAPIConfigured()) {
+    throw new Error("FASTAPI_URL environment variable is not set");
+  }
+
+  // Ensure user exists before processing (creates if needed)
+  let effectiveUserId = userId;
+  if (!effectiveUserId) {
+    const userResult = await ensureUserExists(chatId);
+    effectiveUserId = userResult?.user.id;
+    if (userResult?.isNew) {
+      console.log(`🆕 Created new user during runAndStreamBatched for ${chatId}: ${effectiveUserId}`);
+    }
+  }
+
+  // Get conversation to save messages
+  const { conversation } = await getOrCreateConversation(chatId);
+
+  // Save each user message individually for history
+  for (const msg of messages) {
+    await saveMessage(conversation.id, msg.content, "user", {
+      externalId: msg.id,
+    });
+  }
+
+  // Determine if we should use batched endpoint or regular endpoint
+  const useBatchedEndpoint = messages.length > 1;
+
+  let response: FastAPIMessageResponseV2;
+
+  if (useBatchedEndpoint) {
+    console.log(`📦 Sending ${messages.length} batched messages to FastAPI V2`);
+    // Send batched messages to FastAPI V2
+    response = await sendBatchedMessageV2({
+      thread_id: threadId,
+      phone: chatId,
+      messages: messages.map((m) => ({
+        id: m.id,
+        content: m.content,
+        timestamp: m.timestamp,
+      })),
+      combined_message: combinedUserInput,
+      user_id: effectiveUserId,
+      is_new_conversation: false,
+    });
+  } else {
+    // Single message - use regular endpoint
+    response = await sendMessageV2({
+      thread_id: threadId,
+      phone: chatId,
+      message: combinedUserInput,
+      user_id: effectiveUserId,
+      is_new_conversation: false,
+    });
+  }
+
+  // Save assistant response
+  await saveMessage(conversation.id, response.reply_text, "assistant", {
+    agentUsed: response.agent_used || undefined,
+  });
+
+  // Update conversation metadata
+  await updateConversation(threadId, {
+    agentUsed: response.agent_used || undefined,
+    riskLevel: response.risk_level,
+    riskScore: response.risk_score,
+    messageCount: conversation.messageCount + messages.length + 1, // user messages + assistant
   });
 
   // Handle the response

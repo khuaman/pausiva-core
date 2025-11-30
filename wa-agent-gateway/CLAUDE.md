@@ -22,7 +22,8 @@ src/
     ├── db.ts          - Drizzle ORM client for Supabase
     ├── schema.ts      - Drizzle schema definitions
     ├── storage.ts     - Storage layer (Supabase + Redis caching)
-    └── redis.ts       - Redis client for caching
+    ├── redis.ts       - Redis client for caching
+    └── debouncer.ts   - Message debouncing service (prevents double-message issues)
 ```
 
 ### Core Flow
@@ -206,6 +207,30 @@ PLATFORM_API_KEY=your_secure_api_key
   - `action_process` → "process_data" (Agendar Cita)
   - `action_query` → "query_data" (Consultar Datos)
   - `action_help` → "chat" (Obtener Ayuda)
+
+**Message Debouncing** (`src/lib/debouncer.ts`):
+
+Prevents issues when users send multiple messages during AI response generation:
+
+- **Debounce Window**: 2.5 seconds between messages before processing
+- **Max Buffer Time**: 10 seconds maximum before forcing processing
+- **Typing Indicator**: Sent immediately on first message, stays active during debounce
+- **Generation Tracking**: Redis-based flag prevents concurrent AI processing
+
+Flow:
+
+1. Message arrives → Add to buffer → Send typing indicator (first message only)
+2. Start/reset 2.5s debounce timer
+3. If new message arrives → Reset timer, add to buffer
+4. When timer expires or max time reached → Process all buffered messages together
+5. FastAPI receives all messages in context → Single coherent response
+
+Redis keys used:
+
+- `msg_buffer:{phone}` - Buffered messages (TTL: 60s)
+- `generation:{phone}` - Generation lock (TTL: 60s)
+
+This pattern handles WhatsApp users who send thoughts in bursts ("Hey" + "What time is my appointment?" sent rapidly).
 
 **User Identification**:
 

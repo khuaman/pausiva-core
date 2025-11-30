@@ -1,8 +1,15 @@
 import type { Request, Response } from "express";
 import { whatsappClient } from "./lib/whatsapp";
-import { runAndStream, startThread, getActionType, setActionType, getUserByPhone, sendProactiveMessage } from "./actions";
+import { runAndStreamBatched, startThread, getActionType, setActionType, getUserByPhone, sendProactiveMessage } from "./actions";
 import { getOrCreateConversation, forceNewConversation } from "./lib/storage";
 import { proactiveMessageSchema } from "./schemas";
+import {
+  bufferMessage,
+  sendTypingIndicator,
+  combineMessages,
+  clearGenerationInProgress,
+  type BufferedMessage,
+} from "./lib/debouncer";
 
 // Types for WhatsApp webhook payload
 interface WhatsAppMessage {
@@ -98,30 +105,107 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
 
 /**
  * Process an individual WhatsApp message
+ * Messages are buffered and debounced to handle rapid user input
  */
 async function handleMessage(message: WhatsAppMessage): Promise<void> {
   const chatId = message.from;
   const messageId = message.id;
+  const timestamp = parseInt(message.timestamp, 10) * 1000; // Convert to ms
   console.log(`📩 Received message from ${chatId}: ${message.type}`);
 
-  // Mark message as read and show typing indicator ("...")
-  // This provides visual feedback while the AI processes the message
-  // Typing indicator auto-dismisses after 25s or when we respond
-  await whatsappClient.markAsRead(messageId, true);
+  // Extract message content based on type
+  let content = "";
+  let interactiveId: string | undefined;
+  let messageType: "text" | "interactive" = "text";
 
-  // Handle text messages
   if (message.type === "text" && message.text?.body) {
-    await handleTextMessage(chatId, message.text.body);
+    content = message.text.body;
+  } else if (message.type === "interactive" && message.interactive?.button_reply) {
+    content = message.interactive.button_reply.title;
+    interactiveId = message.interactive.button_reply.id;
+    messageType = "interactive";
+  } else if (message.type === "interactive" && message.interactive?.list_reply) {
+    content = message.interactive.list_reply.title;
+    interactiveId = message.interactive.list_reply.id;
+    messageType = "interactive";
+  } else {
+    // Unsupported message type
+    console.log(`⚠️ Unsupported message type: ${message.type}`);
+    return;
   }
 
-  // Handle interactive button replies
-  if (message.type === "interactive" && message.interactive?.button_reply) {
-    await handleButtonReply(chatId, message.interactive.button_reply.id);
+  // Check if this is a greeting that should start a new conversation
+  // Greetings bypass the debouncer and start immediately
+  if (messageType === "text" && isGreeting(content)) {
+    console.log(`👋 Greeting detected: "${content}" - forcing new conversation`);
+    await whatsappClient.markAsRead(messageId, true);
+    await forceNewConversation(chatId);
+    await startThread(chatId);
+    return;
   }
 
-  // Handle interactive list replies
-  if (message.type === "interactive" && message.interactive?.list_reply) {
-    await handleButtonReply(chatId, message.interactive.list_reply.id);
+  // Create buffered message
+  const bufferedMessage: BufferedMessage = {
+    id: messageId,
+    content,
+    timestamp: timestamp || Date.now(),
+    type: messageType,
+    interactiveId,
+  };
+
+  // Buffer the message and set up debounce timer
+  const { isFirstMessage } = await bufferMessage(
+    chatId,
+    bufferedMessage,
+    handleDebouncedMessages
+  );
+
+  // Send typing indicator immediately on first message
+  if (isFirstMessage) {
+    await sendTypingIndicator(chatId, messageId);
+  }
+}
+
+/**
+ * Handle buffered messages after debounce timer expires
+ * This is called by the debouncer when it's time to process messages
+ */
+async function handleDebouncedMessages(
+  chatId: string,
+  messages: BufferedMessage[],
+  generationId: string
+): Promise<void> {
+  console.log(`🔄 Processing ${messages.length} debounced message(s) for ${chatId} (gen: ${generationId})`);
+
+  try {
+    // Check if any message is an interactive button reply
+    const interactiveMessage = messages.find((m) => m.type === "interactive" && m.interactiveId);
+
+    if (interactiveMessage && interactiveMessage.interactiveId) {
+      // If there's an interactive message, handle it with priority
+      // (buttons usually indicate intent, text messages are context)
+      const textMessages = messages.filter((m) => m.type === "text");
+      const combinedText = textMessages.length > 0 ? combineMessages(textMessages) : "";
+
+      await handleButtonReplyWithContext(
+        chatId,
+        interactiveMessage.interactiveId,
+        combinedText
+      );
+    } else {
+      // All text messages - combine and process
+      const combinedContent = combineMessages(messages);
+      await handleTextMessageBatched(chatId, messages, combinedContent);
+    }
+  } catch (error) {
+    console.error(`❌ Error in handleDebouncedMessages for ${chatId}:`, error);
+    // Clear generation state on error
+    await clearGenerationInProgress(chatId);
+    // Send error message to user
+    await whatsappClient.sendTextMessage(
+      chatId,
+      "Lo siento, hubo un error procesando tu mensaje. Por favor, intenta de nuevo."
+    );
   }
 }
 
@@ -155,20 +239,14 @@ function isGreeting(text: string): boolean {
 }
 
 /**
- * Handle text messages from users
+ * Handle batched text messages from users
+ * Called after debounce timer expires with all buffered messages
  */
-async function handleTextMessage(chatId: string, text: string): Promise<void> {
-  // Check if message is a greeting (should start new conversation)
-  const shouldStartNew = isGreeting(text);
-
-  // If greeting detected, force a new conversation (ends old one if exists)
-  if (shouldStartNew) {
-    console.log(`👋 Greeting detected: "${text}" - forcing new conversation`);
-    await forceNewConversation(chatId);
-    await startThread(chatId);
-    return;
-  }
-  
+async function handleTextMessageBatched(
+  chatId: string,
+  messages: BufferedMessage[],
+  combinedText: string
+): Promise<void> {
   // Get or create conversation (uses Supabase + Redis cache)
   const { conversation, isNew } = await getOrCreateConversation(chatId);
   const threadId = conversation.threadId;
@@ -187,20 +265,28 @@ async function handleTextMessage(chatId: string, text: string): Promise<void> {
   // Get current action type (default to "chat")
   const actionType = (await getActionType(threadId)) as ActionType;
 
-  // Process message through the multi-agent system
-  await runAndStream({
+  // Process batched messages through the multi-agent system
+  await runAndStreamBatched({
     chatId,
     threadId,
     actionType,
-    userInput: text,
+    messages,
+    combinedUserInput: combinedText,
     userId,
   });
 }
 
 /**
- * Handle button/list reply interactions
+ * Handle button/list reply interactions with optional additional context
+ * @param chatId - The phone number of the user
+ * @param buttonId - The ID of the button that was pressed
+ * @param additionalContext - Optional text messages sent along with the button
  */
-async function handleButtonReply(chatId: string, buttonId: string): Promise<void> {
+async function handleButtonReplyWithContext(
+  chatId: string,
+  buttonId: string,
+  additionalContext: string = ""
+): Promise<void> {
   // Get conversation
   const { conversation } = await getOrCreateConversation(chatId);
   const threadId = conversation.threadId;
@@ -237,12 +323,19 @@ async function handleButtonReply(chatId: string, buttonId: string): Promise<void
     chat: "Necesito ayuda",
   };
 
-  // Trigger the action
-  await runAndStream({
+  // Combine context message with any additional user input
+  let userInput = contextMessages[actionType] ?? "";
+  if (additionalContext) {
+    userInput = `${userInput}\n\nContexto adicional del usuario:\n${additionalContext}`;
+  }
+
+  // Trigger the action with batched handler
+  await runAndStreamBatched({
     chatId,
     threadId,
     actionType,
-    userInput: contextMessages[actionType] ?? "",
+    messages: [], // No buffered messages for button replies
+    combinedUserInput: userInput,
     userId,
   });
 }

@@ -25,6 +25,19 @@ export interface FastAPIMessageRequestV2 {
   is_new_conversation?: boolean; // Flag for new conversations (triggers onboarding)
 }
 
+export interface FastAPIBatchedMessageRequestV2 {
+  thread_id: string;
+  phone: string;
+  messages: Array<{
+    id: string;
+    content: string;
+    timestamp: number;
+  }>;
+  combined_message: string; // Pre-combined message for convenience
+  user_id?: string; // Optional user ID for authenticated users
+  is_new_conversation?: boolean; // Flag for new conversations (triggers onboarding)
+}
+
 export interface FastAPICheckinRequest {
   thread_id: string;
   message_id?: string;
@@ -119,6 +132,36 @@ export async function sendMessageV2(
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`FastAPI V2 error (${response.status}): ${errorText}`);
+  }
+
+  return response.json() as Promise<FastAPIMessageResponseV2>;
+}
+
+/**
+ * Send batched messages to the FastAPI V2 chat endpoint
+ * Used when multiple messages are buffered during debounce window
+ */
+export async function sendBatchedMessageV2(
+  request: FastAPIBatchedMessageRequestV2
+): Promise<FastAPIMessageResponseV2> {
+  const baseUrl = getFastAPIUrl();
+  if (!baseUrl) {
+    throw new Error("FASTAPI_URL environment variable is not set");
+  }
+
+  const url = `${baseUrl}/v2/chat/message/batch`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`FastAPI V2 batch error (${response.status}): ${errorText}`);
   }
 
   return response.json() as Promise<FastAPIMessageResponseV2>;
