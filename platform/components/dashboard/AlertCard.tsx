@@ -1,10 +1,36 @@
+/**
+ * AlertCard Component
+ * 
+ * This component is currently not used in the application.
+ * It was designed to display patient alerts/notifications.
+ * 
+ * To use this component, you would need to:
+ * 1. Create an alerts API endpoint (e.g., /api/alerts)
+ * 2. Create a useAlerts hook to fetch alerts data
+ * 3. Integrate it into the dashboard or relevant pages
+ * 
+ * For now, the application uses the Alert component from @/components/ui/alert
+ * for displaying system messages and notifications.
+ */
+
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Clock } from 'lucide-react';
-import { Alert } from '@/data/mockData';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+
+type AlertSeverity = 'alta' | 'media' | 'baja';
+
+interface Alert {
+  id: string;
+  patientId: string;
+  patientName: string;
+  symptom: string;
+  severity: AlertSeverity;
+  date: string;
+  time: string;
+}
 
 interface AlertCardProps {
   alert: Alert;
@@ -12,7 +38,7 @@ interface AlertCardProps {
 }
 
 export const AlertCard = ({ alert, onViewDetail }: AlertCardProps) => {
-  const severityColors = {
+  const severityColors: Record<AlertSeverity, string> = {
     alta: 'bg-destructive text-destructive-foreground',
     media: 'bg-warning text-warning-foreground',
     baja: 'bg-info text-info-foreground',
