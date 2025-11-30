@@ -16,7 +16,32 @@ const PLAN_SELECT = `
     type,
     status,
     scheduled_at,
-    notes
+    notes,
+    patient_id,
+    doctor_id,
+    patient:patients!appointments_patient_id_fkey (
+      id,
+      dni,
+      users!patients_id_fkey (
+        id,
+        full_name,
+        email,
+        phone,
+        picture_url
+      )
+    ),
+    doctor:doctors!appointments_doctor_id_fkey (
+      id,
+      cmp,
+      specialty,
+      users!doctors_id_fkey (
+        id,
+        full_name,
+        email,
+        phone,
+        picture_url
+      )
+    )
   )
 `;
 
@@ -47,6 +72,29 @@ function mapPlan(row: SupabasePlanRow): ApiPlan {
           status: row.appointment.status,
           scheduledAt: row.appointment.scheduled_at,
           notes: row.appointment.notes,
+          patientId: row.appointment.patient_id,
+          doctorId: row.appointment.doctor_id,
+          patient: row.appointment.patient
+            ? {
+                id: row.appointment.patient.id,
+                dni: row.appointment.patient.dni,
+                fullName: row.appointment.patient.users.full_name,
+                email: row.appointment.patient.users.email,
+                phone: row.appointment.patient.users.phone,
+                pictureUrl: row.appointment.patient.users.picture_url,
+              }
+            : null,
+          doctor: row.appointment.doctor
+            ? {
+                id: row.appointment.doctor.id,
+                cmp: row.appointment.doctor.cmp,
+                specialty: row.appointment.doctor.specialty,
+                fullName: row.appointment.doctor.users.full_name,
+                email: row.appointment.doctor.users.email,
+                phone: row.appointment.doctor.users.phone,
+                pictureUrl: row.appointment.doctor.users.picture_url,
+              }
+            : null,
         }
       : null,
   };
@@ -60,10 +108,25 @@ export async function GET(request: NextRequest) {
     const appointmentId = searchParams.get('appointmentId');
     const limit = parseLimit(searchParams.get('limit'));
 
-    let query = supabase.from('plans').select(PLAN_SELECT);
+    // Build the select with proper joins
+    let selectQuery = PLAN_SELECT;
+    
+    // Use !inner join when filtering by patientId to enable nested filtering
+    if (patientId) {
+      selectQuery = selectQuery.replace(
+        'appointment:appointments!plans_appointment_id_fkey',
+        'appointment:appointments!plans_appointment_id_fkey!inner'
+      );
+    }
+
+    let query = supabase.from('plans').select(selectQuery);
+    
+    // Filter by patient_id through the appointment relationship
     if (patientId) {
       query = query.eq('appointment.patient_id', patientId);
     }
+    
+    // Direct filter on appointment_id
     if (appointmentId) {
       query = query.eq('appointment_id', appointmentId);
     }
@@ -85,6 +148,10 @@ export async function GET(request: NextRequest) {
         entity: 'plan',
         count: mapped.length,
         limit,
+        filters: {
+          patientId: patientId || undefined,
+          appointmentId: appointmentId || undefined,
+        },
       },
     });
   } catch (error) {

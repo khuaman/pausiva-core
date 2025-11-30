@@ -33,6 +33,7 @@ import {
 import { toast } from '@/hooks/use-toast';
 import { usePatients } from '@/hooks/use-patients';
 import { useDoctors } from '@/hooks/use-doctors';
+import { useDataRefetch } from '@/contexts/DataRefetchContext';
 import {
   APPOINTMENT_STATUS_VALUES,
   APPOINTMENT_TYPE_VALUES,
@@ -66,7 +67,7 @@ const INITIAL_DOCTOR_FORM = {
 const INITIAL_APPOINTMENT_FORM = {
   patientId: '',
   doctorId: '',
-  type: APPOINTMENT_TYPE_VALUES[0],
+  type: APPOINTMENT_TYPE_VALUES[0] as AppointmentType,
   status: 'scheduled' as AppointmentStatus,
   date: '',
   time: '',
@@ -80,7 +81,40 @@ function formatEnumLabel(value: string): string {
 async function parseJsonResponse(response: Response) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error((data && data.error) || 'Operación fallida. Inténtalo nuevamente.');
+    const errorMessage = data?.error || 'Operación fallida. Inténtalo nuevamente.';
+    
+    // Detect specific error patterns and provide user-friendly messages
+    if (errorMessage.includes('User already registered') || 
+        errorMessage.includes('duplicate key') ||
+        errorMessage.includes('already exists')) {
+      
+      if (errorMessage.toLowerCase().includes('email')) {
+        throw new Error('Ya existe un usuario registrado con este correo electrónico.');
+      }
+      if (errorMessage.toLowerCase().includes('cmp')) {
+        throw new Error('Ya existe un doctor registrado con este CMP.');
+      }
+      throw new Error('Ya existe un registro con estos datos.');
+    }
+    
+    // Handle specific field validation errors
+    if (errorMessage.includes('email is required') || errorMessage.includes('Valid email')) {
+      throw new Error('El correo electrónico es obligatorio y debe ser válido.');
+    }
+    if (errorMessage.includes('Full name is required')) {
+      throw new Error('El nombre completo es obligatorio.');
+    }
+    if (errorMessage.includes('DNI is required')) {
+      throw new Error('El DNI es obligatorio.');
+    }
+    if (errorMessage.includes('CMP is required')) {
+      throw new Error('El CMP es obligatorio.');
+    }
+    if (errorMessage.includes('Specialty is required')) {
+      throw new Error('La especialidad es obligatoria.');
+    }
+    
+    throw new Error(errorMessage);
   }
   return data;
 }
@@ -104,6 +138,8 @@ export function AdminCreateMenu() {
     loading: loadingDoctors,
     refetch: refetchDoctors,
   } = useDoctors({ limit: 100 });
+
+  const { triggerPatientsRefetch, triggerDoctorsRefetch } = useDataRefetch();
 
   const patientOptions = useMemo(
     () =>
@@ -185,7 +221,12 @@ export function AdminCreateMenu() {
         });
         setPatientForm(INITIAL_PATIENT_FORM);
         closeModal();
-        await refetchPatients();
+        
+        // Refetch both the local dropdown list and trigger refetch in all registered components
+        await Promise.all([
+          refetchPatients(),
+          triggerPatientsRefetch()
+        ]);
       } catch (error) {
         toast({
           title: 'No se pudo crear el paciente',
@@ -196,7 +237,7 @@ export function AdminCreateMenu() {
         setCreatingPatient(false);
       }
     },
-    [patientForm, refetchPatients]
+    [patientForm, refetchPatients, triggerPatientsRefetch]
   );
 
   const handleDoctorSubmit = useCallback(
@@ -242,7 +283,12 @@ export function AdminCreateMenu() {
         });
         setDoctorForm(INITIAL_DOCTOR_FORM);
         closeModal();
-        await refetchDoctors();
+        
+        // Refetch both the local dropdown list and trigger refetch in all registered components
+        await Promise.all([
+          refetchDoctors(),
+          triggerDoctorsRefetch()
+        ]);
       } catch (error) {
         toast({
           title: 'No se pudo crear el doctor',
@@ -253,7 +299,7 @@ export function AdminCreateMenu() {
         setCreatingDoctor(false);
       }
     },
-    [doctorForm, refetchDoctors]
+    [doctorForm, refetchDoctors, triggerDoctorsRefetch]
   );
 
   const handleAppointmentSubmit = useCallback(
@@ -359,17 +405,23 @@ export function AdminCreateMenu() {
 
           <form onSubmit={handlePatientSubmit} className="space-y-5">
             <div className="grid gap-2">
-              <Label>Nombre completo *</Label>
+              <Label>
+                Nombre completo <span className="text-destructive">*</span>
+              </Label>
               <Input
                 value={patientForm.fullName}
                 onChange={(event) =>
                   setPatientForm((prev) => ({ ...prev, fullName: event.target.value }))
                 }
                 placeholder="Ej. Carmen López"
+                required
               />
+              <p className="text-xs text-muted-foreground">Campo obligatorio</p>
             </div>
             <div className="grid gap-2">
-              <Label>Correo electrónico *</Label>
+              <Label>
+                Correo electrónico <span className="text-destructive">*</span>
+              </Label>
               <Input
                 type="email"
                 value={patientForm.email}
@@ -377,11 +429,17 @@ export function AdminCreateMenu() {
                   setPatientForm((prev) => ({ ...prev, email: event.target.value }))
                 }
                 placeholder="correo@pausiva.com"
+                required
               />
+              <p className="text-xs text-muted-foreground">
+                Campo obligatorio · Debe ser único en el sistema
+              </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="grid gap-2">
-                <Label>Teléfono</Label>
+                <Label>
+                  Teléfono <span className="text-muted-foreground text-xs">(opcional)</span>
+                </Label>
                 <Input
                   value={patientForm.phone}
                   onChange={(event) =>
@@ -391,7 +449,9 @@ export function AdminCreateMenu() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label>Fecha de nacimiento</Label>
+                <Label>
+                  Fecha de nacimiento <span className="text-muted-foreground text-xs">(opcional)</span>
+                </Label>
                 <Input
                   type="date"
                   value={patientForm.birthDate}
@@ -402,7 +462,9 @@ export function AdminCreateMenu() {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label>Foto (URL)</Label>
+              <Label>
+                Foto (URL) <span className="text-muted-foreground text-xs">(opcional)</span>
+              </Label>
               <Input
                 value={patientForm.pictureUrl}
                 onChange={(event) =>
@@ -412,17 +474,23 @@ export function AdminCreateMenu() {
               />
             </div>
             <div className="grid gap-2">
-              <Label>DNI *</Label>
+              <Label>
+                DNI <span className="text-destructive">*</span>
+              </Label>
               <Input
                 value={patientForm.dni}
                 onChange={(event) =>
                   setPatientForm((prev) => ({ ...prev, dni: event.target.value }))
                 }
                 placeholder="Documento nacional de identidad"
+                required
               />
+              <p className="text-xs text-muted-foreground">Campo obligatorio</p>
             </div>
             <div className="grid gap-2">
-              <Label>Perfil clínico (JSON opcional)</Label>
+              <Label>
+                Perfil clínico <span className="text-muted-foreground text-xs">(opcional)</span>
+              </Label>
               <Textarea
                 value={patientForm.clinicalProfile}
                 onChange={(event) =>
@@ -432,7 +500,7 @@ export function AdminCreateMenu() {
                 placeholder='{"antecedentes":"...","alergias":["..."]}'
               />
               <p className="text-xs text-muted-foreground">
-                Estos datos se almacenan en <code>patients.clinical_profile_json</code>.
+                Debe ser un objeto JSON válido. Se almacena en <code>patients.clinical_profile_json</code>.
               </p>
             </div>
 
@@ -464,17 +532,23 @@ export function AdminCreateMenu() {
 
           <form onSubmit={handleDoctorSubmit} className="space-y-5">
             <div className="grid gap-2">
-              <Label>Nombre completo *</Label>
+              <Label>
+                Nombre completo <span className="text-destructive">*</span>
+              </Label>
               <Input
                 value={doctorForm.fullName}
                 onChange={(event) =>
                   setDoctorForm((prev) => ({ ...prev, fullName: event.target.value }))
                 }
                 placeholder="Ej. Dra. María González"
+                required
               />
+              <p className="text-xs text-muted-foreground">Campo obligatorio</p>
             </div>
             <div className="grid gap-2">
-              <Label>Correo electrónico *</Label>
+              <Label>
+                Correo electrónico <span className="text-destructive">*</span>
+              </Label>
               <Input
                 type="email"
                 value={doctorForm.email}
@@ -482,11 +556,17 @@ export function AdminCreateMenu() {
                   setDoctorForm((prev) => ({ ...prev, email: event.target.value }))
                 }
                 placeholder="correo@pausiva.com"
+                required
               />
+              <p className="text-xs text-muted-foreground">
+                Campo obligatorio · Debe ser único en el sistema
+              </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="grid gap-2">
-                <Label>Teléfono</Label>
+                <Label>
+                  Teléfono <span className="text-muted-foreground text-xs">(opcional)</span>
+                </Label>
                 <Input
                   value={doctorForm.phone}
                   onChange={(event) =>
@@ -496,7 +576,9 @@ export function AdminCreateMenu() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label>Fecha de nacimiento</Label>
+                <Label>
+                  Fecha de nacimiento <span className="text-muted-foreground text-xs">(opcional)</span>
+                </Label>
                 <Input
                   type="date"
                   value={doctorForm.birthDate}
@@ -507,7 +589,9 @@ export function AdminCreateMenu() {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label>Foto (URL)</Label>
+              <Label>
+                Foto (URL) <span className="text-muted-foreground text-xs">(opcional)</span>
+              </Label>
               <Input
                 value={doctorForm.pictureUrl}
                 onChange={(event) =>
@@ -518,28 +602,40 @@ export function AdminCreateMenu() {
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="grid gap-2">
-                <Label>CMP *</Label>
+                <Label>
+                  CMP <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   value={doctorForm.cmp}
                   onChange={(event) =>
                     setDoctorForm((prev) => ({ ...prev, cmp: event.target.value }))
                   }
                   placeholder="Licencia colegiada"
+                  required
                 />
+                <p className="text-xs text-muted-foreground">
+                  Campo obligatorio · Debe ser único en el sistema
+                </p>
               </div>
               <div className="grid gap-2">
-                <Label>Especialidad *</Label>
+                <Label>
+                  Especialidad <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   value={doctorForm.specialty}
                   onChange={(event) =>
                     setDoctorForm((prev) => ({ ...prev, specialty: event.target.value }))
                   }
                   placeholder="Ej. Ginecología"
+                  required
                 />
+                <p className="text-xs text-muted-foreground">Campo obligatorio</p>
               </div>
             </div>
             <div className="grid gap-2">
-              <Label>DNI (opcional)</Label>
+              <Label>
+                DNI <span className="text-muted-foreground text-xs">(opcional)</span>
+              </Label>
               <Input
                 value={doctorForm.dni}
                 onChange={(event) =>
@@ -576,7 +672,9 @@ export function AdminCreateMenu() {
 
           <form onSubmit={handleAppointmentSubmit} className="space-y-5">
             <div className="grid gap-2">
-              <Label>Paciente *</Label>
+              <Label>
+                Paciente <span className="text-destructive">*</span>
+              </Label>
               <Select
                 value={appointmentForm.patientId || undefined}
                 onValueChange={(value) =>
@@ -609,10 +707,13 @@ export function AdminCreateMenu() {
                   )}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">Campo obligatorio</p>
             </div>
 
             <div className="grid gap-2">
-              <Label>Profesional *</Label>
+              <Label>
+                Profesional <span className="text-destructive">*</span>
+              </Label>
               <Select
                 value={appointmentForm.doctorId || undefined}
                 onValueChange={(value) =>
@@ -645,76 +746,68 @@ export function AdminCreateMenu() {
                   )}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">Campo obligatorio</p>
             </div>
 
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="grid gap-2">
-                <Label>Fecha *</Label>
+                <Label>
+                  Fecha <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   type="date"
                   value={appointmentForm.date}
                   onChange={(event) =>
                     setAppointmentForm((prev) => ({ ...prev, date: event.target.value }))
                   }
+                  required
                 />
               </div>
               <div className="grid gap-2">
-                <Label>Hora *</Label>
+                <Label>
+                  Hora <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   type="time"
                   value={appointmentForm.time}
                   onChange={(event) =>
                     setAppointmentForm((prev) => ({ ...prev, time: event.target.value }))
                   }
+                  required
                 />
               </div>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label>Tipo *</Label>
-                <Select
-                  value={appointmentForm.type}
-                  onValueChange={(value: AppointmentType) =>
-                    setAppointmentForm((prev) => ({ ...prev, type: value }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {APPOINTMENT_TYPE_VALUES.map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {formatEnumLabel(value)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label>Estado *</Label>
-                <Select
-                  value={appointmentForm.status}
-                  onValueChange={(value: AppointmentStatus) =>
-                    setAppointmentForm((prev) => ({ ...prev, status: value }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {APPOINTMENT_STATUS_VALUES.map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {formatEnumLabel(value)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid gap-2">
+              <Label>
+                Tipo <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={appointmentForm.type}
+                onValueChange={(value: AppointmentType) =>
+                  setAppointmentForm((prev) => ({ ...prev, type: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {APPOINTMENT_TYPE_VALUES.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {formatEnumLabel(value)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                La cita se creará con estado "Programada"
+              </p>
             </div>
 
             <div className="grid gap-2">
-              <Label>Notas</Label>
+              <Label>
+                Notas <span className="text-muted-foreground text-xs">(opcional)</span>
+              </Label>
               <Textarea
                 value={appointmentForm.notes}
                 onChange={(event) =>
