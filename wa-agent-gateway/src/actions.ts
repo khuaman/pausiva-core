@@ -10,6 +10,7 @@ import {
 import {
   getOrCreateConversation,
   getUserByPhone,
+  ensureUserExists,
   saveMessage,
   updateConversation,
   setActionType,
@@ -27,13 +28,18 @@ export async function startThread(chatId: string): Promise<string> {
     throw new Error("FASTAPI_URL environment variable is not set");
   }
 
+  // Ensure user exists (creates via Supabase Auth if not)
+  const userResult = await ensureUserExists(chatId);
+  const userId = userResult?.user.id;
+  const isNewUser = userResult?.isNew ?? false;
+
+  if (isNewUser) {
+    console.log(`🆕 Created new user for ${chatId}: ${userId}`);
+  }
+
   // Get or create conversation in database
   const { conversation, isNew } = await getOrCreateConversation(chatId);
   const threadId = conversation.threadId;
-
-  // Get user_id if user exists
-  const user = await getUserByPhone(chatId);
-  const userId = user?.id;
 
   if (isNew) {
     console.log(`🆕 New conversation created: ${threadId} for ${chatId}`);
@@ -131,6 +137,16 @@ export async function runAndStream({
     throw new Error("FASTAPI_URL environment variable is not set");
   }
 
+  // Ensure user exists before processing (creates if needed)
+  let effectiveUserId = userId;
+  if (!effectiveUserId) {
+    const userResult = await ensureUserExists(chatId);
+    effectiveUserId = userResult?.user.id;
+    if (userResult?.isNew) {
+      console.log(`🆕 Created new user during runAndStream for ${chatId}: ${effectiveUserId}`);
+    }
+  }
+
   // Get conversation to save messages
   const { conversation } = await getOrCreateConversation(chatId);
 
@@ -144,7 +160,7 @@ export async function runAndStream({
     thread_id: threadId,
     phone: chatId,
     message: userInput,
-    user_id: userId,
+    user_id: effectiveUserId,
     is_new_conversation: false,
   });
 

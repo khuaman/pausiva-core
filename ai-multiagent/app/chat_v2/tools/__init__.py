@@ -23,10 +23,9 @@ from .medication import (
 )
 from .patient import (
     PATIENT_TOOLS,
-    create_patient,
     get_patient_by_phone,
     update_onboarding_state,
-    update_patient,
+    update_patient_info,
 )
 from .triage import (
     TRIAGE_TOOLS,
@@ -52,8 +51,7 @@ ALL_TOOLS = [
 __all__ = [
     # Patient
     "get_patient_by_phone",
-    "create_patient",
-    "update_patient",
+    "update_patient_info",
     "update_onboarding_state",
     "PATIENT_TOOLS",
     # Followings

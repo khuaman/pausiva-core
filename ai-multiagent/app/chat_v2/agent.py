@@ -56,8 +56,12 @@ def create_agent_node():
         # Get the model with fallbacks (gpt-5.1 -> gemini-2.0-flash)
         model = get_chat_model_with_fallbacks(temperature=0.7)
 
-        # Bind all tools to the model with parallel execution enabled
-        model_with_tools = model.bind_tools(ALL_TOOLS, parallel_tool_calls=True)
+        # Bind all tools to the model with parallel execution and strict schema
+        model_with_tools = model.bind_tools(
+            ALL_TOOLS,
+            strict=True,
+            parallel_tool_calls=True,
+        )
 
         # Build system prompt with context
         system_prompt = get_system_prompt(
@@ -108,7 +112,13 @@ def build_graph() -> StateGraph:
 
     # Add nodes
     graph.add_node("agent", create_agent_node())
-    graph.add_node("tools", ToolNode(tools=ALL_TOOLS))
+    graph.add_node(
+        "tools",
+        ToolNode(
+            tools=ALL_TOOLS,
+            handle_tool_errors=True,
+        ),
+    )
 
     # Set entry point
     graph.set_entry_point("agent")

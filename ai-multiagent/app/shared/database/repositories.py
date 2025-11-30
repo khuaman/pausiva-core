@@ -1,9 +1,15 @@
 """Repository classes for database operations."""
+
 from datetime import date, datetime
 from typing import Any, Optional
 from uuid import uuid4
 
 from .client import get_supabase_client
+
+
+def normalize_phone(phone: str) -> str:
+    """Normalize phone number to E.164 format with + prefix."""
+    return phone if phone.startswith("+") else f"+{phone}"
 
 
 class PatientRepository:
@@ -13,22 +19,29 @@ class PatientRepository:
         self.client = get_supabase_client()
 
     def get_by_phone(self, phone: str) -> Optional[dict]:
-        """Get patient by phone number."""
+        """Get patient by phone number.
+
+        Phone is normalized to E.164 format (+prefix) for consistent lookups.
+        """
         if not self.client:
             return None
 
         try:
+            # Normalize phone to E.164 format
+            normalized = normalize_phone(phone)
+
             result = (
                 self.client.table("users")
                 .select("*, patients(*)")
-                .eq("phone", phone)
+                .eq("phone", normalized)
                 .single()
                 .execute()
             )
             if result.data:
                 return self._format_patient(result.data)
             return None
-        except Exception:
+        except Exception as e:
+            print(f"Error getting patient by phone {phone}: {e}")
             return None
 
     def get_by_id(self, patient_id: str) -> Optional[dict]:
@@ -51,7 +64,12 @@ class PatientRepository:
             return None
 
     def create_or_update(self, phone: str, data: dict) -> Optional[dict]:
-        """Create or update a patient by phone number."""
+        """Update an existing patient by phone number.
+
+        NOTE: This method no longer creates new users/patients.
+        User creation is handled by wa-agent-gateway via Supabase Auth.
+        This method only updates existing records.
+        """
         if not self.client:
             return None
 
@@ -60,55 +78,82 @@ class PatientRepository:
             if existing:
                 return self._update_patient(existing["id"], data)
             else:
-                return self._create_patient(phone, data)
+                # User doesn't exist - wa-agent-gateway should create them first
+                print(f"⚠️ No user found for phone {phone}. Check wa-agent-gateway.")
+                return None
         except Exception as e:
-            print(f"Error creating/updating patient: {e}")
+            print(f"Error updating patient: {e}")
             return None
 
-    def _create_patient(self, phone: str, data: dict) -> Optional[dict]:
-        """Create new user and patient records."""
-        user_id = str(uuid4())
+    def create_patient_record(self, user_id: str, data: dict) -> Optional[dict]:
+        """Create a patient record for an existing user.
 
-        user_data = {
-            "id": user_id,
-            "phone": phone,
-            "full_name": data.get("name", ""),
-            "email": data.get("email", f"{phone.replace('+', '')}@pausiva.temp"),
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat(),
-        }
+        Use this when a user exists but doesn't have a patient record yet.
+        The user must already exist in public.users (created via Supabase Auth).
 
-        if data.get("birth_date"):
-            user_data["birth_date"] = data["birth_date"]
+        Args:
+            user_id: The user's UUID (must exist in public.users)
+            data: Patient data including dni and clinical_profile
 
-        self.client.table("users").insert(user_data).execute()
+        Returns:
+            Created patient data or None if creation failed
+        """
+        if not self.client:
+            return None
 
-        patient_data = {
-            "id": user_id,
-            "dni": data.get("dni", f"TEMP-{phone.replace('+', '')}"),
-            "clinical_profile_json": data.get("clinical_profile", {}),
-        }
+        try:
+            # Check if patient record already exists
+            existing = self.get_by_id(user_id)
+            if existing:
+                return existing
 
-        self.client.table("patients").insert(patient_data).execute()
+            # Create patient record
+            patient_data = {
+                "id": user_id,
+                "dni": data.get("dni", f"TEMP-{user_id[:8]}"),
+                "clinical_profile_json": data.get("clinical_profile", {"onboarding_state": "new"}),
+            }
 
-        return self.get_by_phone(phone)
+            self.client.table("patients").insert(patient_data).execute()
+            return self.get_by_id(user_id)
+        except Exception as e:
+            print(f"Error creating patient record: {e}")
+            return None
 
     def _update_patient(self, patient_id: str, data: dict) -> Optional[dict]:
-        """Update existing patient."""
-        user_updates: dict[str, Any] = {"updated_at": datetime.now().isoformat()}
-        if data.get("name"):
-            user_updates["full_name"] = data["name"]
-        if data.get("birth_date"):
-            user_updates["birth_date"] = data["birth_date"]
+        """Update existing patient.
 
-        self.client.table("users").update(user_updates).eq("id", patient_id).execute()
+        Updates users table for name/birth_date.
+        Updates patients table for clinical_profile.
+        """
+        try:
+            # Update users table (name, birth_date)
+            user_updates: dict[str, Any] = {"updated_at": datetime.now().isoformat()}
+            if data.get("name"):
+                user_updates["full_name"] = data["name"]
+                print(f"📝 Updating user {patient_id} full_name to: {data['name']}")
+            if data.get("birth_date"):
+                user_updates["birth_date"] = data["birth_date"]
 
-        if data.get("clinical_profile"):
-            self.client.table("patients").update(
-                {"clinical_profile_json": data["clinical_profile"]}
-            ).eq("id", patient_id).execute()
+            result = self.client.table("users").update(user_updates).eq("id", patient_id).execute()
+            if not result.data:
+                print(f"⚠️ No rows updated for user {patient_id} - user may not exist")
 
-        return self.get_by_id(patient_id)
+            # Update patients table (clinical_profile)
+            if data.get("clinical_profile"):
+                patient_result = (
+                    self.client.table("patients")
+                    .update({"clinical_profile_json": data["clinical_profile"]})
+                    .eq("id", patient_id)
+                    .execute()
+                )
+                if not patient_result.data:
+                    print(f"⚠️ No rows updated for patient {patient_id} - patient may not exist")
+
+            return self.get_by_id(patient_id)
+        except Exception as e:
+            print(f"❌ Error updating patient {patient_id}: {e}")
+            return None
 
     def update_clinical_profile(self, patient_id: str, profile: dict) -> None:
         """Update patient's clinical profile JSON."""
@@ -356,9 +401,7 @@ class AppointmentRepository:
             print(f"Error creating appointment: {e}")
             return None
 
-    def update_status(
-        self, appointment_id: str, status: str, notes: str | None = None
-    ) -> None:
+    def update_status(self, appointment_id: str, status: str, notes: str | None = None) -> None:
         """Update appointment status."""
         if not self.client:
             return
@@ -371,9 +414,7 @@ class AppointmentRepository:
             if notes:
                 updates["notes"] = notes
 
-            self.client.table("appointments").update(updates).eq(
-                "id", appointment_id
-            ).execute()
+            self.client.table("appointments").update(updates).eq("id", appointment_id).execute()
         except Exception:
             pass
 
@@ -537,4 +578,3 @@ class PlanRepository:
         except Exception as e:
             print(f"Error creating plan: {e}")
             return None
-

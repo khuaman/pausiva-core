@@ -19,6 +19,7 @@ import {
 } from "./schema";
 import { redis } from "./redis";
 import { v4 as uuidv4 } from "uuid";
+import { createAuthUser, createPatientRecord, normalizePhone } from "./supabase";
 
 // Cache TTL in seconds (24 hours)
 const CACHE_TTL = 86400;
@@ -37,46 +38,27 @@ const USER_KEY_PREFIX = "user-phone:";
  * Checks Redis cache first, then queries Supabase
  */
 export async function getUserByPhone(phone: string): Promise<User | null> {
-  // Normalize phone (remove + if present for consistency)
-  const normalizedPhone = phone.startsWith("+") ? phone : `+${phone}`;
-  const cacheKey = `${USER_KEY_PREFIX}${normalizedPhone}`;
+  // Normalize phone to E.164 format with + prefix
+  const normalized = normalizePhone(phone);
 
-  // Check Redis cache
-  const cached = await redis.get(cacheKey);
-  if (cached) {
-    try {
-      return JSON.parse(cached) as User;
-    } catch {
-      // Invalid cache, continue to DB query
-    }
-  }
-
-  // Query Supabase - try both with and without + prefix
+  // Query Supabase directly (cache disabled - was causing stale data issues)
   const result = await db
     .select()
     .from(users)
-    .where(eq(users.phone, normalizedPhone))
+    .where(eq(users.phone, normalized))
     .limit(1);
 
   if (result.length === 0) {
-    // Try without + prefix
+    // Try without + prefix (for legacy data)
     const altResult = await db
       .select()
       .from(users)
       .where(eq(users.phone, phone.replace(/^\+/, "")))
       .limit(1);
 
-    if (altResult.length === 0) {
-      return null;
-    }
-
-    // Cache the result
-    await redis.set(cacheKey, JSON.stringify(altResult[0]), CACHE_TTL);
-    return altResult[0];
+    return altResult.length > 0 ? altResult[0] : null;
   }
 
-  // Cache the result
-  await redis.set(cacheKey, JSON.stringify(result[0]), CACHE_TTL);
   return result[0];
 }
 
@@ -98,9 +80,109 @@ export async function getPatientIdByPhone(phone: string): Promise<string | null>
   return patient.length > 0 ? patient[0].id : null;
 }
 
+/**
+ * Ensure a user exists for the given phone number.
+ * If the user doesn't exist, create them via Supabase Auth.
+ * Also ensures a patient record exists.
+ *
+ * @param phone - Phone number in E.164 format
+ * @returns User info with isNew flag, or null if creation failed
+ */
+export async function ensureUserExists(
+  phone: string
+): Promise<{ user: User; isNew: boolean } | null> {
+  // First, check if user already exists in DB
+  const existingUser = await getUserByPhone(phone);
+
+  if (existingUser) {
+    // User exists - check if patient record exists
+    const patientId = await getPatientIdByPhone(phone);
+    if (!patientId) {
+      // User exists but no patient record - try to create one
+      console.log(`📝 User ${existingUser.id} exists but no patient - creating patient record`);
+      const success = await createPatientRecord(existingUser.id);
+      if (!success) {
+        console.warn(`⚠️ Patient creation failed for user ${existingUser.id}`);
+        // Don't fail - the user exists, we can still proceed
+      }
+    }
+    return { user: existingUser, isNew: false };
+  }
+
+  // User doesn't exist in public.users - create via Supabase Auth
+  // (handles orphaned auth users too)
+  console.log(`🆕 Creating new user + patient for phone: ${phone}`);
+  const newUser = await createAuthUser(phone);
+
+  if (!newUser) {
+    console.error(`❌ Failed to create user for phone: ${phone}`);
+    return null;
+  }
+
+  // Fetch the newly created user from DB
+  const createdUser = await getUserByPhone(phone);
+  if (!createdUser) {
+    console.error(`❌ User created but not found in DB: ${phone}`);
+    return null;
+  }
+
+  return { user: createdUser, isNew: true };
+}
+
 // ============================================
 // CONVERSATION QUERIES
 // ============================================
+
+/**
+ * Force start a new conversation for a phone number.
+ * Ends any existing active conversation and creates a new one.
+ * Used when greetings are detected to simulate "new conversation" behavior.
+ */
+export async function forceNewConversation(
+  phone: string
+): Promise<{ conversation: Conversation; isNew: boolean }> {
+  const cacheKey = `${THREAD_KEY_PREFIX}${phone}`;
+
+  // End any existing active conversation
+  const existingActive = await db
+    .select()
+    .from(conversations)
+    .where(
+      and(eq(conversations.phone, phone), eq(conversations.status, "active"))
+    )
+    .limit(1);
+
+  if (existingActive.length > 0) {
+    const oldConversation = existingActive[0];
+    console.log(`🔄 Ending existing conversation: ${oldConversation.threadId}`);
+    await endConversation(oldConversation.threadId);
+  }
+
+  // Create new conversation
+  const threadId = uuidv4();
+  const patientId = await getPatientIdByPhone(phone);
+
+  const newConversation: NewConversation = {
+    threadId,
+    phone,
+    patientId,
+    channel: "whatsapp",
+    status: "active",
+    actionType: "chat",
+    messageCount: 0,
+  };
+
+  const [created] = await db
+    .insert(conversations)
+    .values(newConversation)
+    .returning();
+
+  // Cache the new thread ID
+  await redis.set(cacheKey, threadId, CACHE_TTL);
+
+  console.log(`🆕 Created new conversation: ${threadId} for ${phone}`);
+  return { conversation: created, isNew: true };
+}
 
 /**
  * Get or create a conversation for a phone number
