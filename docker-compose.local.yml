@@ -1,0 +1,83 @@
+# ============================================
+# Pausiva Core - Local Development
+# ============================================
+# This docker-compose runs both services together for local testing
+#
+# Usage:
+#   docker compose -f docker-compose.local.yml up
+#
+# Services:
+#   - wa-agent-gateway: WhatsApp webhook (port 3000)
+#   - ai-multiagent: FastAPI AI service (port 8099)
+#   - redis: Session storage (port 6379)
+#
+# Each service uses its own .env file in its folder
+
+services:
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - pausiva-local
+
+  ai-multiagent:
+    build:
+      context: ./ai-multiagent
+      dockerfile: Dockerfile.dev
+    container_name: ai-multiagent-local
+    ports:
+      - "8099:8099"
+    env_file:
+      - ./ai-multiagent/.env
+    environment:
+      # Override for local development
+      - ENVIRONMENT=local
+    volumes:
+      - ./ai-multiagent/app:/app/app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8099/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - pausiva-local
+
+  wa-agent-gateway:
+    build:
+      context: ./wa-agent-gateway
+      dockerfile: Dockerfile
+    container_name: wa-agent-gateway-local
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./wa-agent-gateway/.env
+    environment:
+      # Override for docker networking
+      - REDIS_URL=redis://redis:6379
+      - FASTAPI_URL=http://ai-multiagent:8099
+    depends_on:
+      redis:
+        condition: service_healthy
+      ai-multiagent:
+        condition: service_healthy
+    volumes:
+      - ./wa-agent-gateway/src:/app/src
+    networks:
+      - pausiva-local
+
+volumes:
+  redis_data:
+
+networks:
+  pausiva-local:
+    driver: bridge
+

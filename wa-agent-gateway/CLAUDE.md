@@ -17,7 +17,8 @@ src/
 ├── schemas.ts         - Zod schemas for data validation
 └── lib/
     ├── whatsapp.ts    - Wapi.js client wrapper for sending messages
-    ├── langgraph.ts   - LangGraph SDK client initialization
+    ├── fastapi.ts     - FastAPI client for ai-multiagent (primary)
+    ├── langgraph.ts   - LangGraph SDK client initialization (fallback)
     └── redis.ts       - Redis client for session storage
 ```
 
@@ -44,9 +45,15 @@ src/
 - `process_data`: Data recording workflow (expects structured data parsing)
 - `query_data`: Data querying workflow (expects SQL query execution)
 
-**Fallback Behavior**:
-- If LangGraph is not configured (missing `LANGGRAPH_API_URL` or `LANGSMITH_API_KEY`), the service operates in echo mode with locally generated thread IDs
-- LangGraph SDK is dynamically imported to make it an optional dependency
+**AI Backend Priority**:
+1. **FastAPI** (primary): If `FASTAPI_URL` is set, calls the ai-multiagent `/chat/message` endpoint
+2. **LangGraph** (fallback): If FastAPI fails or isn't configured, uses LangGraph SDK
+3. **Echo mode**: If neither is configured, operates in echo mode for testing
+
+**FastAPI Integration** (`src/lib/fastapi.ts`):
+- Calls `POST /chat/message` with `thread_id`, `phone`, and `message`
+- Calls `POST /chat/checkin` to start new conversations
+- Returns structured response with `reply_text`, `risk_level`, `agent_used`, etc.
 
 **Streaming Chunk Processing**:
 - LangGraph streams chunks with agent outputs keyed by action type (actions.ts:66-111)
@@ -106,7 +113,12 @@ WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
 WHATSAPP_WEBHOOK_SECRET=your_webhook_verification_token
 ```
 
-**LangGraph** - Optional (service runs in echo mode without these):
+**FastAPI Backend** - Recommended (ai-multiagent):
+```
+FASTAPI_URL=http://localhost:8099
+```
+
+**LangGraph** - Optional fallback (used if FastAPI is not configured):
 ```
 LANGGRAPH_API_URL=https://your-langgraph-api-url
 LANGSMITH_API_KEY=your_langsmith_api_key
