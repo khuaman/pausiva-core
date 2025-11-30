@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getServiceSupabaseClient } from '@/utils/supabase/service';
 import type { ApiPlan, SupabasePlanRow } from './types';
+import {
+  getAuthenticatedUser,
+  hasFullAccess,
+  isDoctor,
+  isPatient,
+} from '../auth-helpers';
 
 const PLAN_SELECT = `
   id,
@@ -102,11 +108,32 @@ function mapPlan(row: SupabasePlanRow): ApiPlan {
 
 export async function GET(request: NextRequest) {
   try {
+    // Authenticate the user
+    const authUser = await getAuthenticatedUser(request);
+    
+    if (!authUser) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please log in.' },
+        { status: 401 }
+      );
+    }
+
     const supabase = getServiceSupabaseClient();
     const { searchParams } = new URL(request.url);
-    const patientId = searchParams.get('patientId');
+    let patientId = searchParams.get('patientId');
     const appointmentId = searchParams.get('appointmentId');
     const limit = parseLimit(searchParams.get('limit'));
+
+    // Apply role-based filtering
+    if (isPatient(authUser)) {
+      // Patients can only see their own plans
+      patientId = authUser.id;
+    } else if (isDoctor(authUser)) {
+      // Doctors can only see plans for their patients (filtered through appointments)
+      // We'll need to add doctor filtering
+      // For now, we'll handle this through the appointment relationship
+    }
+    // Staff has full access
 
     // Build the select with proper joins
     let selectQuery = PLAN_SELECT;
@@ -124,6 +151,16 @@ export async function GET(request: NextRequest) {
     // Filter by patient_id through the appointment relationship
     if (patientId) {
       query = query.eq('appointment.patient_id', patientId);
+    }
+    
+    // If doctor, filter by doctor_id through appointment
+    if (isDoctor(authUser) && !patientId) {
+      selectQuery = selectQuery.replace(
+        'appointment:appointments!plans_appointment_id_fkey',
+        'appointment:appointments!plans_appointment_id_fkey!inner'
+      );
+      query = supabase.from('plans').select(selectQuery);
+      query = query.eq('appointment.doctor_id', authUser.id);
     }
     
     // Direct filter on appointment_id

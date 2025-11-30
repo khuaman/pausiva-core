@@ -12,10 +12,16 @@ import {
   teardownProvisionedUser,
   type ProvisionedUserProfile,
 } from '../utils';
+import {
+  getAuthenticatedUser,
+  hasFullAccess,
+  isDoctor,
+} from '../../auth-helpers';
 
 type FetchFilters = {
   id?: string | null;
   limit: number;
+  doctorId?: string | null; // Filter patients by assigned doctor
 };
 
 const PATIENT_SELECT = `
@@ -115,12 +121,13 @@ async function fetchPatientStats(
 
 async function fetchPatients(
   client: SupabaseClient,
-  { id, limit }: FetchFilters,
+  { id, limit, doctorId }: FetchFilters,
   includeStats: boolean = false
 ): Promise<ApiPatient[]> {
-  let query = client.from('patients').select(PATIENT_SELECT);
-
+  // If filtering by specific patient ID
   if (id) {
+    let query = client.from('patients').select(PATIENT_SELECT);
+    
     const { data, error } = await query.eq('id', id).maybeSingle();
     if (error && error.code !== 'PGRST116') {
       throw error;
@@ -134,6 +141,22 @@ async function fetchPatients(
       return [];
     }
 
+    // If doctorId is provided, verify this patient is assigned to the doctor
+    if (doctorId) {
+      const { data: relationship, error: relError } = await client
+        .from('patient_doctors')
+        .select('id')
+        .eq('patient_id', id)
+        .eq('doctor_id', doctorId)
+        .is('ended_at', null) // Only active relationships
+        .maybeSingle();
+      
+      if (relError || !relationship) {
+        // Patient not assigned to this doctor
+        return [];
+      }
+    }
+
     const safeRow: PatientRowWithUser = {
       ...typedRow,
       users: typedRow.users,
@@ -143,7 +166,56 @@ async function fetchPatients(
     return [mapPatient(safeRow, stats)];
   }
 
-  const { data, error } = await query.limit(limit);
+  // If filtering by doctor, get patients through patient_doctors join table
+  if (doctorId) {
+    const { data: patientDoctorRelations, error: relError } = await client
+      .from('patient_doctors')
+      .select('patient_id')
+      .eq('doctor_id', doctorId)
+      .is('ended_at', null) // Only active relationships
+      .limit(limit);
+    
+    if (relError) {
+      throw relError;
+    }
+
+    if (!patientDoctorRelations || patientDoctorRelations.length === 0) {
+      return [];
+    }
+
+    const patientIds = patientDoctorRelations.map(rel => rel.patient_id);
+    
+    const { data, error } = await client
+      .from('patients')
+      .select(PATIENT_SELECT)
+      .in('id', patientIds);
+    
+    if (error) {
+      throw error;
+    }
+
+    const typedData = (data ?? []) as unknown as SupabasePatientRow[];
+    const patientsWithUser = typedData.filter((row): row is PatientRowWithUser => Boolean(row.users));
+
+    if (includeStats) {
+      const patientsWithStats = await Promise.all(
+        patientsWithUser.map(async (row) => {
+          const stats = await fetchPatientStats(client, row.id);
+          return mapPatient(row, stats);
+        })
+      );
+      return patientsWithStats;
+    }
+
+    return patientsWithUser.map((row) => mapPatient(row));
+  }
+
+  // Default: fetch all patients (staff only)
+  const { data, error } = await client
+    .from('patients')
+    .select(PATIENT_SELECT)
+    .limit(limit);
+  
   if (error) {
     throw error;
   }
@@ -166,13 +238,43 @@ async function fetchPatients(
 
 export async function GET(request: NextRequest) {
   try {
+    // Authenticate the user
+    const authUser = await getAuthenticatedUser(request);
+    
+    if (!authUser) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please log in.' },
+        { status: 401 }
+      );
+    }
+
     const supabase = getServiceSupabaseClient();
     const { searchParams } = new URL(request.url);
     const idParam = searchParams.get('id');
     const limit = parseLimit(searchParams.get('limit'));
     const includeStats = searchParams.get('includeStats') === 'true';
 
-    const patients = await fetchPatients(supabase, { id: idParam, limit }, includeStats);
+    // Determine filters based on user role
+    let doctorId: string | null = null;
+    
+    if (isDoctor(authUser)) {
+      // Doctors can only see their assigned patients
+      doctorId = authUser.id;
+    } else if (!hasFullAccess(authUser)) {
+      // Patients shouldn't access this endpoint
+      return NextResponse.json(
+        { error: 'Forbidden. Insufficient permissions.' },
+        { status: 403 }
+      );
+    }
+    // Staff has full access (doctorId remains null)
+
+    const patients = await fetchPatients(
+      supabase,
+      { id: idParam, limit, doctorId },
+      includeStats
+    );
+    
     const sorted = patients.sort(
       (a, b) => new Date(b.profile.createdAt).getTime() - new Date(a.profile.createdAt).getTime()
     );
@@ -187,6 +289,7 @@ export async function GET(request: NextRequest) {
         entity: 'patient',
         count: sorted.length,
         limit,
+        ...(doctorId && { filteredByDoctor: doctorId }),
       },
     });
   } catch (error) {
@@ -276,6 +379,23 @@ function normalizeProfile(profile: Required<CreatePatientBody>['profile']): Prov
 }
 
 export async function POST(request: NextRequest) {
+  // Authenticate the user
+  const authUser = await getAuthenticatedUser(request);
+  
+  if (!authUser) {
+    return NextResponse.json(
+      { error: 'Unauthorized. Please log in.' },
+      { status: 401 }
+    );
+  }
+
+  if (!hasFullAccess(authUser)) {
+    return NextResponse.json(
+      { error: 'Forbidden. Only staff members can create patients.' },
+      { status: 403 }
+    );
+  }
+
   let parsedBody: Required<CreatePatientBody>;
 
   try {
@@ -351,6 +471,23 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    // Authenticate the user
+    const authUser = await getAuthenticatedUser(request);
+    
+    if (!authUser) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please log in.' },
+        { status: 401 }
+      );
+    }
+
+    if (!hasFullAccess(authUser)) {
+      return NextResponse.json(
+        { error: 'Forbidden. Only staff members can delete patients.' },
+        { status: 403 }
+      );
+    }
+
     const supabase = getServiceSupabaseClient();
     const { searchParams } = new URL(request.url);
     const idParam = searchParams.get('id');

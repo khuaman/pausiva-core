@@ -102,59 +102,6 @@ export default function Configuracion() {
           </CardContent>
         </Card>
 
-        {/* Notificaciones */}
-        <Card className="border-none shadow-none bg-transparent">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Bell className="h-5 w-5 text-primary" />
-              <CardTitle>Notificaciones</CardTitle>
-            </div>
-            <CardDescription>
-              Configura cómo quieres recibir notificaciones
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Notificaciones por email</Label>
-                <p className="text-sm text-muted-foreground">
-                  Recibe actualizaciones importantes por correo
-                </p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Recordatorios de citas</Label>
-                <p className="text-sm text-muted-foreground">
-                  Recibe recordatorios 24h antes de tus citas
-                </p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Alertas de seguimiento</Label>
-                <p className="text-sm text-muted-foreground">
-                  Notificaciones sobre tu plan de tratamiento
-                </p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Novedades de Pausiva</Label>
-                <p className="text-sm text-muted-foreground">
-                  Recibe información sobre nuevas funcionalidades
-                </p>
-              </div>
-              <Switch />
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Preferencias */}
         <Card className="border-none shadow-none bg-transparent">
