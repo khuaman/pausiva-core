@@ -51,6 +51,7 @@ type PatientStats = {
   consultasCount: number;
   preconsultasCount: number;
   hasPlans: boolean;
+  lastAppointmentDate: string | null;
 };
 
 function mapPatient(row: PatientRowWithUser, stats?: PatientStats): ApiPatient {
@@ -80,7 +81,7 @@ async function fetchPatientStats(
   client: SupabaseClient,
   patientId: string
 ): Promise<PatientStats> {
-  const [consultasResult, preconsultasResult, plansResult] = await Promise.all([
+  const [consultasResult, preconsultasResult, plansResult, lastAppointmentResult] = await Promise.all([
     client
       .from('appointments')
       .select('*', { count: 'exact', head: true })
@@ -95,12 +96,20 @@ async function fetchPatientStats(
       .from('plans')
       .select('*', { count: 'exact', head: true })
       .eq('patient_id', patientId),
+    client
+      .from('appointments')
+      .select('scheduled_at')
+      .eq('patient_id', patientId)
+      .order('scheduled_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   return {
     consultasCount: consultasResult.count || 0,
     preconsultasCount: preconsultasResult.count || 0,
     hasPlans: (plansResult.count || 0) > 0,
+    lastAppointmentDate: lastAppointmentResult.data?.scheduled_at || null,
   };
 }
 
