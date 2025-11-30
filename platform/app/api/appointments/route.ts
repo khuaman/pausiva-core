@@ -220,9 +220,11 @@ export async function GET(request: NextRequest) {
     if (isDoctor(authUser)) {
       // Doctors can only see appointments where they are the doctor
       doctorId = authUser.id;
+      console.log('[api/appointments] Doctor detected - filtering by doctorId:', doctorId);
     } else if (isPatient(authUser)) {
       // Patients can only see their own appointments
       patientId = authUser.id;
+      console.log('[api/appointments] Patient detected - filtering by patientId:', patientId);
     }
     // Staff has full access (no additional filtering)
 
@@ -236,6 +238,8 @@ export async function GET(request: NextRequest) {
     };
 
     const appointments = await fetchAppointments(supabase, filters);
+    
+    console.log('[api/appointments] Fetched appointments:', appointments.length, 'for filters:', { patientId, doctorId, status });
 
     return NextResponse.json({
       data: appointments,
@@ -358,6 +362,37 @@ export async function POST(request: NextRequest) {
       { error: 'Unexpected error creating appointment in Supabase.' },
       { status: 500 }
     );
+  }
+
+  // Ensure patient_doctors relationship exists
+  // Check if there's an active relationship between this patient and doctor
+  const { data: existingRelationship } = await supabase
+    .from('patient_doctors')
+    .select('id')
+    .eq('patient_id', patientId)
+    .eq('doctor_id', doctorId)
+    .is('ended_at', null)
+    .maybeSingle();
+
+  // If no active relationship exists, create one
+  if (!existingRelationship) {
+    const { error: relationshipError } = await supabase
+      .from('patient_doctors')
+      .insert({
+        patient_id: patientId,
+        doctor_id: doctorId,
+        is_primary: false, // Can be updated later if needed
+        relationship_notes: 'Automatically created from appointment',
+        started_at: scheduledDate.toISOString(),
+      });
+
+    if (relationshipError) {
+      console.error('[api/appointments] Error creating patient_doctors relationship', relationshipError);
+      // Don't fail the appointment creation, just log the error
+      // The appointment was created successfully, but the relationship wasn't
+    } else {
+      console.log('[api/appointments] Created patient_doctors relationship:', { patientId, doctorId });
+    }
   }
 
   return NextResponse.json(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +21,7 @@ import { usePatients } from '@/hooks/use-patients';
 import { useAppointments } from '@/hooks/use-appointments';
 import { useFollowings } from '@/hooks/use-followings';
 import { usePlans } from '@/hooks/use-plans';
+import { useParaclinics } from '@/hooks/use-paraclinics';
 import { useToast } from '@/hooks/use-toast';
 import {
   ArrowLeft,
@@ -29,7 +30,6 @@ import {
   Mail,
   User,
   FileText,
-  Activity,
   AlertCircle,
   Clock,
   MessageSquare,
@@ -43,6 +43,100 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import type { ApiPlan } from '@/app/api/plans/types';
+
+// Component to display plan row with files
+function PlanRow({ plan }: { plan: ApiPlan }) {
+  const [files, setFiles] = useState<Array<{ name: string; url: string; size: number | null }>>([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [errorLoadingFiles, setErrorLoadingFiles] = useState(false);
+
+  useEffect(() => {
+    const fetchFiles = async () => {
+      if (!plan.appointmentId) return;
+      
+      setLoadingFiles(true);
+      setErrorLoadingFiles(false);
+      try {
+        const response = await fetch(`/api/files?appointmentId=${plan.appointmentId}&category=plan`);
+        if (response.ok) {
+          const result = await response.json();
+          setFiles(result.data || []);
+        } else if (response.status === 404 || response.status === 500) {
+          // Bucket not found or storage not configured - treat as no files
+          setFiles([]);
+        } else {
+          setErrorLoadingFiles(true);
+        }
+      } catch (error) {
+        console.error('Error fetching plan files:', error);
+        setErrorLoadingFiles(true);
+      } finally {
+        setLoadingFiles(false);
+      }
+    };
+
+    fetchFiles();
+  }, [plan.appointmentId]);
+
+  return (
+    <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+      <td className="px-4 py-4">
+        <div className="flex items-center gap-2">
+          <Pill className="h-5 w-5 text-green-500" />
+          <span className="font-medium">Plan de Tratamiento</span>
+        </div>
+      </td>
+      <td className="px-4 py-4 text-sm text-muted-foreground">
+        {plan.startDate ? (
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4" />
+            {format(new Date(plan.startDate), 'PP', { locale: es })}
+          </div>
+        ) : (
+          '-'
+        )}
+      </td>
+      <td className="px-4 py-4 text-sm text-muted-foreground">
+        {plan.endDate ? (
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4" />
+            {format(new Date(plan.endDate), 'PP', { locale: es })}
+          </div>
+        ) : (
+          '-'
+        )}
+      </td>
+      <td className="px-4 py-4 text-sm text-muted-foreground">
+        {plan.appointment ? (
+          format(new Date(plan.appointment.scheduledAt!), 'PP', { locale: es })
+        ) : (
+          '-'
+        )}
+      </td>
+      <td className="px-4 py-4">
+        {loadingFiles ? (
+          <span className="text-sm text-muted-foreground">Cargando...</span>
+        ) : errorLoadingFiles ? (
+          <span className="text-sm text-muted-foreground">Error al cargar archivos</span>
+        ) : files.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            {files.map((file, index) => (
+              <Button key={index} variant="outline" size="sm" asChild>
+                <a href={file.url} target="_blank" rel="noopener noreferrer">
+                  <FileText className="h-4 w-4 mr-2" />
+                  {file.name}
+                </a>
+              </Button>
+            ))}
+          </div>
+        ) : (
+          <span className="text-sm text-muted-foreground">Sin archivos</span>
+        )}
+      </td>
+    </tr>
+  );
+}
 
 export default function PatientDetailPage() {
   const params = useParams();
@@ -57,9 +151,10 @@ export default function PatientDetailPage() {
   const { appointments, loading: loadingAppointments } = useAppointments({ patientId, limit: 50 });
   const { followings, loading: loadingFollowings } = useFollowings({ patientId, limit: 50 });
   const { plans, loading: loadingPlans } = usePlans({ patientId, limit: 50 });
+  const { paraclinics, loading: loadingParaclinics } = useParaclinics({ patientId, limit: 50 });
 
   const patient = patients[0];
-  const loading = loadingPatient || loadingAppointments || loadingFollowings || loadingPlans;
+  const loading = loadingPatient || loadingAppointments || loadingFollowings || loadingPlans || loadingParaclinics;
 
   const handleDeletePatient = async () => {
     setIsDeleting(true);
@@ -116,11 +211,6 @@ export default function PatientDetailPage() {
     return calculatedAge;
   }, [patient?.profile.birthDate]);
 
-  // Get clinical profile
-  const clinicalProfile = useMemo(() => {
-    if (!patient?.metadata.clinicalProfile) return null;
-    return patient.metadata.clinicalProfile as any;
-  }, [patient?.metadata.clinicalProfile]);
 
   // Get appointment status badge variant
   const getAppointmentStatusVariant = (status: string) => {
@@ -274,9 +364,9 @@ export default function PatientDetailPage() {
               <Stethoscope className="h-4 w-4 mr-2" />
               Planes ({plans.length})
             </TabsTrigger>
-            <TabsTrigger value="clinical">
-              <Activity className="h-4 w-4 mr-2" />
-              Perfil Clínico
+            <TabsTrigger value="paraclinics">
+              <FileText className="h-4 w-4 mr-2" />
+              Exámenes ({paraclinics.length})
             </TabsTrigger>
           </TabsList>
 
@@ -287,7 +377,7 @@ export default function PatientDetailPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border bg-muted/50">
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-foreground" colSpan={2}>
+                     <th className="px-4 py-3 text-left text-sm font-semibold text-foreground" colSpan={2}>
                       Estadísticas Rápidas
                     </th>
                   </tr>
@@ -343,64 +433,6 @@ export default function PatientDetailPage() {
               </table>
             </div>
 
-            {/* Clinical Summary Table */}
-            {clinicalProfile && (
-              <div className="bg-card border border-border rounded-lg overflow-hidden">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/50">
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground" colSpan={2}>
-                        Resumen Clínico
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {clinicalProfile.menopause_stage && (
-                      <tr className="border-b border-border hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-4 font-medium text-sm w-1/3">Etapa de Menopausia</td>
-                        <td className="px-4 py-4 text-lg font-semibold capitalize">
-                          {clinicalProfile.menopause_stage.replace(/_/g, ' ')}
-                        </td>
-                      </tr>
-                    )}
-                    {clinicalProfile.symptom_score !== undefined && (
-                      <tr className="border-b border-border hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-4 font-medium text-sm w-1/3">Puntuación de Síntomas</td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 bg-gray-200 rounded-full h-3 max-w-md">
-                              <div
-                                className={`h-3 rounded-full transition-all ${
-                                  clinicalProfile.symptom_score >= 7 ? 'bg-red-500' :
-                                  clinicalProfile.symptom_score >= 4 ? 'bg-yellow-500' :
-                                  'bg-green-500'
-                                }`}
-                                style={{ width: `${Math.min(clinicalProfile.symptom_score * 10, 100)}%` }}
-                              />
-                            </div>
-                            <span className="text-lg font-bold">{clinicalProfile.symptom_score}/10</span>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                    {clinicalProfile.risk_factors && clinicalProfile.risk_factors.length > 0 && (
-                      <tr className="hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-4 font-medium text-sm w-1/3">Factores de Riesgo</td>
-                        <td className="px-4 py-4">
-                          <div className="flex flex-wrap gap-2">
-                            {clinicalProfile.risk_factors.map((factor: string) => (
-                              <Badge key={factor} variant="outline" className="capitalize">
-                                {factor.replace(/_/g, ' ')}
-                              </Badge>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
 
             {/* Recent Activity Table */}
             <div className="bg-card border border-border rounded-lg overflow-hidden">
@@ -631,58 +663,12 @@ export default function PatientDetailPage() {
                       <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Fecha de Inicio</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Fecha de Fin</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Cita Relacionada</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Detalles</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Archivos</th>
                     </tr>
                   </thead>
                   <tbody>
                     {plans.map((plan) => (
-                      <tr key={plan.id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-2">
-                            <Pill className="h-5 w-5 text-green-500" />
-                            <span className="font-medium">Plan de Tratamiento</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-sm text-muted-foreground">
-                          {plan.startDate ? (
-                            <div className="flex items-center gap-2">
-                              <CalendarDays className="h-4 w-4" />
-                              {format(new Date(plan.startDate), 'PP', { locale: es })}
-                            </div>
-                          ) : (
-                            '-'
-                          )}
-                        </td>
-                        <td className="px-4 py-4 text-sm text-muted-foreground">
-                          {plan.endDate ? (
-                            <div className="flex items-center gap-2">
-                              <CalendarDays className="h-4 w-4" />
-                              {format(new Date(plan.endDate), 'PP', { locale: es })}
-                            </div>
-                          ) : (
-                            '-'
-                          )}
-                        </td>
-                        <td className="px-4 py-4 text-sm text-muted-foreground">
-                          {plan.appointment ? (
-                            format(new Date(plan.appointment.scheduledAt!), 'PP', { locale: es })
-                          ) : (
-                            '-'
-                          )}
-                        </td>
-                        <td className="px-4 py-4">
-                          {plan.plan && (
-                            <details className="cursor-pointer">
-                              <summary className="text-sm text-primary hover:underline">Ver plan completo</summary>
-                              <div className="mt-2 p-3 bg-muted/50 rounded-md max-w-md">
-                                <pre className="text-xs whitespace-pre-wrap font-mono overflow-auto">
-                                  {JSON.stringify(plan.plan, null, 2)}
-                                </pre>
-                              </div>
-                            </details>
-                          )}
-                        </td>
-                      </tr>
+                      <PlanRow key={plan.id} plan={plan} />
                     ))}
                   </tbody>
                 </table>
@@ -690,97 +676,69 @@ export default function PatientDetailPage() {
             </div>
           </TabsContent>
 
-          {/* Clinical Profile Tab */}
-          <TabsContent value="clinical" className="space-y-6">
+          {/* Paraclinics Tab */}
+          <TabsContent value="paraclinics" className="space-y-6">
             <div className="bg-card border border-border rounded-lg overflow-hidden">
-              {clinicalProfile ? (
+              {loadingParaclinics ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  Cargando exámenes...
+                </div>
+              ) : paraclinics.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No hay exámenes registrados
+                </div>
+              ) : (
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-muted/50">
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground" colSpan={2}>
-                        Perfil Clínico Completo
-                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Tipo</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Fecha de Resultado</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Cita Relacionada</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Descripción</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Archivo</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {/* Menopause Stage */}
-                    {clinicalProfile.menopause_stage && (
-                      <tr className="border-b border-border hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-4 font-semibold text-sm text-muted-foreground w-1/3">
-                          ETAPA DE MENOPAUSIA
+                    {paraclinics.map((paraclinic) => (
+                      <tr key={paraclinic.id} className="border-b border-border hover:bg-muted/30 transition-colors">
+                        <td className="px-4 py-4">
+                          <Badge variant="outline" className="capitalize">
+                            {paraclinic.type === 'image' ? 'Imagen' : paraclinic.type === 'lab' ? 'Laboratorio' : 'Procedimiento'}
+                          </Badge>
                         </td>
-                        <td className="px-4 py-4 text-lg font-medium capitalize">
-                          {clinicalProfile.menopause_stage.replace(/_/g, ' ')}
+                        <td className="px-4 py-4 text-sm text-muted-foreground">
+                          {paraclinic.resultDate ? (
+                            format(new Date(paraclinic.resultDate), 'PP', { locale: es })
+                          ) : (
+                            '-'
+                          )}
                         </td>
-                      </tr>
-                    )}
-
-                    {/* Symptom Score */}
-                    {clinicalProfile.symptom_score !== undefined && (
-                      <tr className="border-b border-border hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-4 font-semibold text-sm text-muted-foreground w-1/3">
-                          PUNTUACIÓN DE SÍNTOMAS
+                        <td className="px-4 py-4 text-sm text-muted-foreground">
+                          {paraclinic.appointment ? (
+                            format(new Date(paraclinic.appointment.scheduledAt!), 'PP', { locale: es })
+                          ) : (
+                            '-'
+                          )}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-muted-foreground">
+                          {paraclinic.description || '-'}
                         </td>
                         <td className="px-4 py-4">
-                          <div className="flex items-center gap-4">
-                            <div className="flex-1 bg-gray-200 rounded-full h-4 max-w-md">
-                              <div
-                                className={`h-4 rounded-full transition-all ${
-                                  clinicalProfile.symptom_score >= 7 ? 'bg-red-500' :
-                                  clinicalProfile.symptom_score >= 4 ? 'bg-yellow-500' :
-                                  'bg-green-500'
-                                }`}
-                                style={{ width: `${Math.min(clinicalProfile.symptom_score * 10, 100)}%` }}
-                              />
-                            </div>
-                            <span className="text-2xl font-bold">{clinicalProfile.symptom_score}/10</span>
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            {clinicalProfile.symptom_score >= 7 && 'Síntomas severos - Requiere atención prioritaria'}
-                            {clinicalProfile.symptom_score >= 4 && clinicalProfile.symptom_score < 7 && 'Síntomas moderados'}
-                            {clinicalProfile.symptom_score < 4 && 'Síntomas leves'}
-                          </p>
+                          {paraclinic.fileUrl ? (
+                            <Button variant="outline" size="sm" asChild>
+                              <a href={paraclinic.fileUrl} target="_blank" rel="noopener noreferrer">
+                                <FileText className="h-4 w-4 mr-2" />
+                                Ver Archivo
+                              </a>
+                            </Button>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">-</span>
+                          )}
                         </td>
                       </tr>
-                    )}
-
-                    {/* Risk Factors */}
-                    {clinicalProfile.risk_factors && clinicalProfile.risk_factors.length > 0 && (
-                      <tr className="border-b border-border hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-4 font-semibold text-sm text-muted-foreground w-1/3">
-                          FACTORES DE RIESGO
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex flex-wrap gap-2">
-                            {clinicalProfile.risk_factors.map((factor: string) => (
-                              <Badge key={factor} variant="outline" className="capitalize text-sm py-1">
-                                {factor.replace(/_/g, ' ')}
-                              </Badge>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-
-                    {/* Full Clinical Profile JSON */}
-                    <tr className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-4 font-semibold text-sm text-muted-foreground w-1/3">
-                        PERFIL COMPLETO (JSON)
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="p-4 bg-muted/50 rounded-md overflow-auto">
-                          <pre className="text-xs font-mono">
-                            {JSON.stringify(clinicalProfile, null, 2)}
-                          </pre>
-                        </div>
-                      </td>
-                    </tr>
+                    ))}
                   </tbody>
                 </table>
-              ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  No hay información clínica disponible
-                </div>
               )}
             </div>
           </TabsContent>
