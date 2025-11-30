@@ -178,11 +178,12 @@ async function fetchAppointmentById(
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = getServiceSupabaseClient();
-    const appointment = await fetchAppointmentById(supabase, params.id);
+    const { id } = await params;
+    const appointment = await fetchAppointmentById(supabase, id);
 
     if (!appointment) {
       return NextResponse.json({ error: 'Appointment not found.' }, { status: 404 });
