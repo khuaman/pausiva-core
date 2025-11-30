@@ -1,7 +1,8 @@
 "use client";
 
 import { useAuth } from '@/contexts/AuthContext';
-import { getPatientById } from '@/data/mockData';
+import { usePatients } from '@/hooks/use-patients';
+import { useAppointments } from '@/hooks/use-appointments';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -12,10 +13,24 @@ import { es } from 'date-fns/locale';
 
 export default function MiPerfil() {
   const { user } = useAuth();
+  const { patients, loading: loadingPatient } = usePatients({ 
+    id: user?.id,
+    autoFetch: !!user?.id 
+  });
+  const { appointments, loading: loadingAppointments } = useAppointments({ 
+    patientId: user?.id,
+    autoFetch: !!user?.id
+  });
+
+  const patient = patients?.[0];
   
-  // En producción, esto vendría del ID del usuario autenticado
-  // Por ahora usamos el paciente mock P001 (Carmen López)
-  const patient = getPatientById('P001');
+  if (loadingPatient || loadingAppointments) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <p className="text-muted-foreground">Cargando perfil...</p>
+      </div>
+    );
+  }
 
   if (!patient) {
     return (
@@ -25,13 +40,17 @@ export default function MiPerfil() {
     );
   }
 
-  const roadmapSteps = [
-    { key: 'preConsultation', label: 'Pre-consulta', icon: MessageCircle, color: 'text-primary' },
-    { key: 'virtualConsultation', label: 'Consulta Virtual', icon: Calendar, color: 'text-primary' },
-    { key: 'diagnosis', label: 'Diagnóstico', icon: CheckCircle, color: 'text-primary' },
-    { key: 'exams', label: 'Exámenes', icon: AlertCircle, color: 'text-primary' },
-    { key: 'followUp', label: 'Seguimiento', icon: Clock, color: 'text-primary' },
-  ];
+  // Find next appointment
+  const now = new Date();
+  const nextAppointment = appointments
+    ?.filter(apt => new Date(apt.scheduledAt) >= now && (apt.status === 'scheduled' || apt.status === 'rescheduled'))
+    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
+
+  // Get completed appointments
+  const completedAppointments = appointments
+    ?.filter(apt => apt.status === 'completed')
+    .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
+    .slice(0, 3) || [];
 
   return (
     <div className="flex-1 overflow-auto">
@@ -39,17 +58,21 @@ export default function MiPerfil() {
       <header className="bg-card border-b border-border px-8 py-6">
         <div className="flex items-start gap-6">
           <Avatar className="h-20 w-20">
-            <AvatarImage src={patient.avatar} alt={patient.name} />
+            <AvatarImage src={patient.profile.pictureUrl || undefined} alt={patient.profile.fullName} />
             <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
-              {patient.name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+              {patient.profile.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2)}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1">
             <h1 className="text-3xl font-serif font-bold text-foreground mb-2">
               Mi Perfil
             </h1>
-            <p className="text-muted-foreground mb-1">{patient.name}</p>
-            <p className="text-sm text-muted-foreground">{patient.age} años</p>
+            <p className="text-muted-foreground mb-1">{patient.profile.fullName}</p>
+            {patient.profile.birthDate && (
+              <p className="text-sm text-muted-foreground">
+                {Math.floor((new Date().getTime() - new Date(patient.profile.birthDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25))} años
+              </p>
+            )}
           </div>
           <Button variant="outline">Editar Información</Button>
         </div>
@@ -63,27 +86,33 @@ export default function MiPerfil() {
             <CardTitle>Mi Información Personal</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">Teléfono</p>
-              <p className="text-foreground">{patient.demographics.phone}</p>
-            </div>
+            {patient.profile.phone && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Teléfono</p>
+                <p className="text-foreground">{patient.profile.phone}</p>
+              </div>
+            )}
             <div>
               <p className="text-sm font-medium text-muted-foreground mb-1">Email</p>
-              <p className="text-foreground">{patient.demographics.email}</p>
+              <p className="text-foreground">{patient.profile.email}</p>
             </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">Contacto de Emergencia</p>
-              <p className="text-foreground">{patient.demographics.emergencyContact}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">Dirección</p>
-              <p className="text-foreground">{patient.demographics.address}</p>
-            </div>
+            {patient.metadata.dni && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">DNI</p>
+                <p className="text-foreground">{patient.metadata.dni}</p>
+              </div>
+            )}
+            {patient.profile.birthDate && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Fecha de Nacimiento</p>
+                <p className="text-foreground">{format(new Date(patient.profile.birthDate), "d 'de' MMMM, yyyy", { locale: es })}</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Próxima Cita */}
-        {patient.nextAppointment && (
+        {nextAppointment && (
           <Card>
             <CardHeader>
               <CardTitle>Mi Próxima Cita</CardTitle>
@@ -93,13 +122,13 @@ export default function MiPerfil() {
                 <Calendar className="h-6 w-6 text-primary mt-1" />
                 <div className="flex-1">
                   <p className="font-semibold text-foreground mb-1">
-                    {format(new Date(patient.nextAppointment.date), "EEEE, d 'de' MMMM", { locale: es })}
+                    {format(new Date(nextAppointment.scheduledAt), "EEEE, d 'de' MMMM", { locale: es })}
                   </p>
                   <p className="text-sm text-muted-foreground mb-2">
-                    {patient.nextAppointment.time} - {patient.nextAppointment.type}
+                    {format(new Date(nextAppointment.scheduledAt), 'HH:mm', { locale: es })} - {nextAppointment.type}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    con {patient.nextAppointment.doctor}
+                    con {nextAppointment.doctor.fullName}
                   </p>
                 </div>
                 <Button size="sm" variant="outline">Ver Detalles</Button>
@@ -108,98 +137,45 @@ export default function MiPerfil() {
           </Card>
         )}
 
-        {/* Mi Roadmap (Simplificado) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Mi Proceso de Atención</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Progress Indicator */}
-            <div className="flex items-center justify-between">
-              {roadmapSteps.map((step, index) => {
-                const isCompleted = patient.roadmap[step.key as keyof typeof patient.roadmap];
-                const Icon = step.icon;
-                return (
-                  <div key={step.key} className="flex flex-col items-center flex-1 relative">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${
-                      isCompleted ? 'bg-primary text-primary-foreground' : 'bg-gray-200 text-gray-600'
-                    }`}>
-                      <Icon className="h-6 w-6" />
-                    </div>
-                    <p className={`text-xs text-center font-medium ${
-                      isCompleted ? 'text-foreground' : 'text-muted-foreground'
-                    }`}>
-                      {step.label}
-                    </p>
-                    {index < roadmapSteps.length - 1 && (
-                      <div className={`absolute h-0.5 top-6 left-1/2 -z-10 ${
-                        isCompleted && patient.roadmap[roadmapSteps[index + 1].key as keyof typeof patient.roadmap]
-                          ? 'bg-primary'
-                          : 'bg-gray-200'
-                      }`} style={{ width: '100%' }} />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Etapas completadas con descripción breve */}
-            <div className="space-y-4 pt-4">
-              {patient.roadmap.diagnosis && (
-                <div className="p-4 bg-accent rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle className="h-5 w-5 text-primary" />
-                    <p className="font-semibold text-foreground">Diagnóstico Actual</p>
-                  </div>
-                  <p className="text-sm text-foreground">{patient.roadmap.diagnosis.diagnosis}</p>
-                </div>
-              )}
-
-              {patient.roadmap.followUp && patient.roadmap.followUp.length > 0 && (
-                <div className="p-4 bg-accent rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="h-5 w-5 text-primary" />
-                    <p className="font-semibold text-foreground">Último Seguimiento</p>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-1">
-                    {format(new Date(patient.roadmap.followUp[0].date), "d 'de' MMMM, yyyy", { locale: es })}
-                  </p>
-                  <Badge className={
-                    patient.roadmap.followUp[0].improvement === 'mejora' 
-                      ? 'bg-success text-success-foreground' 
-                      : 'bg-info text-info-foreground'
-                  }>
-                    {patient.roadmap.followUp[0].improvement === 'mejora' ? 'En mejora' : 'Estable'}
-                  </Badge>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Mi Perfil Clínico - Solo si hay datos */}
+        {patient.metadata.clinicalProfile && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Mi Perfil Clínico</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm text-muted-foreground">
+                <p>Información clínica disponible</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Historial de Consultas (Resumen) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Mis Consultas Recientes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {patient.appointments.filter(apt => apt.status === 'completada').slice(0, 3).map((apt) => (
-                <div key={apt.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
-                  <div>
-                    <p className="font-medium text-foreground">{apt.type}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {format(new Date(apt.date), "d 'de' MMMM, yyyy", { locale: es })}
-                    </p>
+        {completedAppointments.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Mis Consultas Recientes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {completedAppointments.map((apt) => (
+                  <div key={apt.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
+                    <div>
+                      <p className="font-medium text-foreground">{apt.type}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {format(new Date(apt.scheduledAt), "d 'de' MMMM, yyyy", { locale: es })}
+                      </p>
+                    </div>
+                    <Badge className="bg-success text-success-foreground">
+                      Completada
+                    </Badge>
                   </div>
-                  <Badge className="bg-success text-success-foreground">
-                    Completada
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   );

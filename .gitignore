@@ -94,7 +94,6 @@ dist/
 # =====================
 
 # Patient data (local JSON storage)
-data/
 **/data/patients/
 **/data/conversations/
 **/data/medications/

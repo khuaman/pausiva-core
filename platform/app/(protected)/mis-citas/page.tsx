@@ -1,6 +1,7 @@
 "use client";
 
-import { getPatientById } from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAppointments } from '@/hooks/use-appointments';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,10 +10,20 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 export default function MisCitas() {
-  // En producción, esto vendría del ID del usuario autenticado
-  const patient = getPatientById('P001');
+  const { user } = useAuth();
+  const { appointments, loading, error } = useAppointments({
+    patientId: user?.id,
+  });
 
-  if (!patient) {
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <p className="text-muted-foreground">Cargando citas...</p>
+      </div>
+    );
+  }
+
+  if (error || !appointments) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <p className="text-muted-foreground">No se pudieron cargar tus citas</p>
@@ -20,12 +31,34 @@ export default function MisCitas() {
     );
   }
 
-  const upcomingAppointments = patient.appointments.filter(
-    (apt) => apt.status === 'pendiente'
+  const now = new Date();
+  
+  // Filter upcoming appointments: future date and scheduled/rescheduled
+  const upcomingAppointments = appointments.filter(
+    (apt) => {
+      const appointmentDate = new Date(apt.scheduledAt);
+      return appointmentDate >= now && 
+             (apt.status === 'scheduled' || apt.status === 'rescheduled');
+    }
   );
-  const pastAppointments = patient.appointments.filter(
-    (apt) => apt.status === 'completada'
+  
+  // Filter past appointments: past date or completed status
+  const pastAppointments = appointments.filter(
+    (apt) => {
+      const appointmentDate = new Date(apt.scheduledAt);
+      return appointmentDate < now || apt.status === 'completed';
+    }
   );
+  
+  // Sort upcoming by date (earliest first) and past by date (most recent first)
+  const sortedUpcoming = [...upcomingAppointments].sort(
+    (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
+  );
+  const sortedPast = [...pastAppointments].sort(
+    (a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime()
+  );
+  
+  const nextAppointment = sortedUpcoming[0];
 
   return (
     <div className="flex-1 overflow-auto">
@@ -50,7 +83,7 @@ export default function MisCitas() {
       {/* Content */}
       <main className="p-8 space-y-8">
         {/* Próxima Cita Destacada */}
-        {patient.nextAppointment && (
+        {nextAppointment && (
           <Card className="border-primary">
             <CardHeader>
               <CardTitle>Próxima Cita</CardTitle>
@@ -59,27 +92,27 @@ export default function MisCitas() {
               <div className="flex items-start gap-6">
                 <div className="p-4 bg-primary text-primary-foreground rounded-lg text-center min-w-[80px]">
                   <p className="text-3xl font-bold">
-                    {format(new Date(patient.nextAppointment.date), 'd', { locale: es })}
+                    {format(new Date(nextAppointment.scheduledAt), 'd', { locale: es })}
                   </p>
                   <p className="text-sm uppercase">
-                    {format(new Date(patient.nextAppointment.date), 'MMM', { locale: es })}
+                    {format(new Date(nextAppointment.scheduledAt), 'MMM', { locale: es })}
                   </p>
                 </div>
                 <div className="flex-1">
                   <h3 className="text-xl font-semibold text-foreground mb-2">
-                    {patient.nextAppointment.type}
+                    {nextAppointment.type}
                   </h3>
                   <div className="space-y-2 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4" />
-                      <span>{patient.nextAppointment.time}</span>
+                      <span>{format(new Date(nextAppointment.scheduledAt), 'HH:mm', { locale: es })}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
-                      <span>{format(new Date(patient.nextAppointment.date), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}</span>
+                      <span>{format(new Date(nextAppointment.scheduledAt), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}</span>
                     </div>
                     <p className="mt-2 text-foreground">
-                      <span className="font-medium">Doctor:</span> {patient.nextAppointment.doctor}
+                      <span className="font-medium">Doctor:</span> {nextAppointment.doctor.fullName}
                     </p>
                   </div>
                   <div className="flex gap-3 mt-4">
@@ -93,33 +126,33 @@ export default function MisCitas() {
         )}
 
         {/* Próximas Citas */}
-        {upcomingAppointments.length > 0 && (
+        {sortedUpcoming.length > 0 && (
           <section>
             <h2 className="text-xl font-semibold text-foreground mb-4">
-              Próximas Citas ({upcomingAppointments.length})
+              Próximas Citas ({sortedUpcoming.length})
             </h2>
             <div className="grid gap-4">
-              {upcomingAppointments.map((apt) => (
+              {sortedUpcoming.map((apt) => (
                 <Card key={apt.id}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="p-3 bg-accent rounded-lg text-center min-w-[60px]">
                           <p className="text-xl font-bold text-foreground">
-                            {format(new Date(apt.date), 'd', { locale: es })}
+                            {format(new Date(apt.scheduledAt), 'd', { locale: es })}
                           </p>
                           <p className="text-xs text-muted-foreground uppercase">
-                            {format(new Date(apt.date), 'MMM', { locale: es })}
+                            {format(new Date(apt.scheduledAt), 'MMM', { locale: es })}
                           </p>
                         </div>
                         <div>
                           <p className="font-semibold text-foreground mb-1">{apt.type}</p>
-                          <p className="text-sm text-muted-foreground">{apt.time}</p>
-                          <p className="text-sm text-muted-foreground">{apt.doctor}</p>
+                          <p className="text-sm text-muted-foreground">{format(new Date(apt.scheduledAt), 'HH:mm', { locale: es })}</p>
+                          <p className="text-sm text-muted-foreground">{apt.doctor.fullName}</p>
                         </div>
                       </div>
                       <Badge className="bg-warning text-warning-foreground">
-                        {apt.status}
+                        {apt.status === 'scheduled' ? 'programada' : apt.status === 'rescheduled' ? 'reprogramada' : apt.status}
                       </Badge>
                     </div>
                   </CardContent>
@@ -135,29 +168,29 @@ export default function MisCitas() {
             Historial de Citas
           </h2>
           <div className="grid gap-4">
-            {pastAppointments.map((apt) => (
+            {sortedPast.map((apt) => (
               <Card key={apt.id}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="p-3 bg-gray-100 rounded-lg text-center min-w-[60px]">
                         <p className="text-xl font-bold text-foreground">
-                          {format(new Date(apt.date), 'd', { locale: es })}
+                          {format(new Date(apt.scheduledAt), 'd', { locale: es })}
                         </p>
                         <p className="text-xs text-muted-foreground uppercase">
-                          {format(new Date(apt.date), 'MMM', { locale: es })}
+                          {format(new Date(apt.scheduledAt), 'MMM', { locale: es })}
                         </p>
                       </div>
                       <div>
                         <p className="font-semibold text-foreground mb-1">{apt.type}</p>
                         <p className="text-sm text-muted-foreground">
-                          {format(new Date(apt.date), "d 'de' MMMM, yyyy", { locale: es })} - {apt.time}
+                          {format(new Date(apt.scheduledAt), "d 'de' MMMM, yyyy", { locale: es })} - {format(new Date(apt.scheduledAt), 'HH:mm', { locale: es })}
                         </p>
-                        <p className="text-sm text-muted-foreground">{apt.doctor}</p>
+                        <p className="text-sm text-muted-foreground">{apt.doctor.fullName}</p>
                       </div>
                     </div>
                     <Badge className="bg-success text-success-foreground">
-                      {apt.status}
+                      {apt.status === 'completed' ? 'completada' : apt.status}
                     </Badge>
                   </div>
                 </CardContent>
