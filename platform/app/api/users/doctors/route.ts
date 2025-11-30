@@ -12,6 +12,10 @@ import {
   teardownProvisionedUser,
   type ProvisionedUserProfile,
 } from '../utils';
+import {
+  getAuthenticatedUser,
+  hasFullAccess,
+} from '../../auth-helpers';
 
 type FetchFilters = {
   id?: string | null;
@@ -112,6 +116,16 @@ async function fetchDoctors(
 
 export async function GET(request: NextRequest) {
   try {
+    // Authenticate the user (all authenticated users can view doctors)
+    const authUser = await getAuthenticatedUser(request);
+    
+    if (!authUser) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please log in.' },
+        { status: 401 }
+      );
+    }
+
     const supabase = getServiceSupabaseClient();
     const { searchParams } = new URL(request.url);
     const idParam = searchParams.get('id');
@@ -205,6 +219,23 @@ function normalizeDoctorProfile(
 }
 
 export async function POST(request: NextRequest) {
+  // Authenticate the user
+  const authUser = await getAuthenticatedUser(request);
+  
+  if (!authUser) {
+    return NextResponse.json(
+      { error: 'Unauthorized. Please log in.' },
+      { status: 401 }
+    );
+  }
+
+  if (!hasFullAccess(authUser)) {
+    return NextResponse.json(
+      { error: 'Forbidden. Only staff members can create doctors.' },
+      { status: 403 }
+    );
+  }
+
   let parsedBody: Required<CreateDoctorBody>;
 
   try {

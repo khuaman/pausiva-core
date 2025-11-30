@@ -14,6 +14,12 @@ import type {
   SupabaseAppointmentSummaryRow,
   AppointmentParticipantSummary,
 } from './types';
+import {
+  getAuthenticatedUser,
+  hasFullAccess,
+  isDoctor,
+  isPatient,
+} from '../auth-helpers';
 
 type ParticipantSummaryWithUser = {
   id: string;
@@ -190,15 +196,35 @@ async function fetchAppointments(
 
 export async function GET(request: NextRequest) {
   try {
+    // Authenticate the user
+    const authUser = await getAuthenticatedUser(request);
+    
+    if (!authUser) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please log in.' },
+        { status: 401 }
+      );
+    }
+
     const supabase = getServiceSupabaseClient();
     const { searchParams } = new URL(request.url);
 
-    const patientId = searchParams.get('patientId');
-    const doctorId = searchParams.get('doctorId');
+    let patientId = searchParams.get('patientId');
+    let doctorId = searchParams.get('doctorId');
     const status = parseStatuses(searchParams.get('status'));
     const from = parseDateParam(searchParams.get('from'));
     const to = parseDateParam(searchParams.get('to'));
     const limit = parseLimit(searchParams.get('limit'));
+
+    // Apply role-based filtering
+    if (isDoctor(authUser)) {
+      // Doctors can only see appointments where they are the doctor
+      doctorId = authUser.id;
+    } else if (isPatient(authUser)) {
+      // Patients can only see their own appointments
+      patientId = authUser.id;
+    }
+    // Staff has full access (no additional filtering)
 
     const filters: AppointmentFilters = {
       patientId,
@@ -253,6 +279,24 @@ function isAppointmentStatus(value: string): value is AppointmentStatus {
 }
 
 export async function POST(request: NextRequest) {
+  // Authenticate the user
+  const authUser = await getAuthenticatedUser(request);
+  
+  if (!authUser) {
+    return NextResponse.json(
+      { error: 'Unauthorized. Please log in.' },
+      { status: 401 }
+    );
+  }
+
+  // Only staff and doctors can create appointments
+  if (!hasFullAccess(authUser) && !isDoctor(authUser)) {
+    return NextResponse.json(
+      { error: 'Forbidden. Only staff and doctors can create appointments.' },
+      { status: 403 }
+    );
+  }
+
   let payload: CreateAppointmentBody;
   try {
     payload = (await request.json()) as CreateAppointmentBody;
@@ -261,11 +305,16 @@ export async function POST(request: NextRequest) {
   }
 
   const patientId = payload.patientId?.trim();
-  const doctorId = payload.doctorId?.trim();
+  let doctorId = payload.doctorId?.trim();
   const typeRaw = payload.type ?? '';
   const statusRaw = payload.status ?? 'scheduled';
   const notesValue = payload.notes ?? null;
   const scheduledAtRaw = payload.scheduledAt;
+
+  // If doctor is creating appointment, they must be the doctor
+  if (isDoctor(authUser)) {
+    doctorId = authUser.id;
+  }
 
   if (!patientId) {
     return NextResponse.json({ error: 'patientId is required' }, { status: 400 });

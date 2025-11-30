@@ -102,7 +102,7 @@ export default function LoginPage() {
             <p className="text-sm font-medium text-foreground mb-2">Usuarios de prueba:</p>
             <div className="space-y-1 text-xs text-muted-foreground">
               <p>Admin: admin@pausiva.pe / admin123</p>
-              <p>Doctor: sofia.paredes@example.com / password123</p>
+              <p>Doctor: doctor@pausiva.pe / doctor123</p>
             </div>
           </div>
         </CardContent>
