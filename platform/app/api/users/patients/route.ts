@@ -273,9 +273,20 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error('[api/users/patients] Error creating patient', error);
-    const message = error instanceof Error ? error.message : 'Unexpected error creating patient.';
+    const errorMessage = error instanceof Error ? error.message : 'Unexpected error creating patient.';
+    
+    // Check for duplicate email error
+    if (errorMessage.includes('User already registered') || 
+        errorMessage.includes('already been registered') ||
+        errorMessage.includes('duplicate')) {
+      return NextResponse.json(
+        { error: 'El correo electrónico ya está registrado en el sistema.' },
+        { status: 409 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: message },
+      { error: errorMessage },
       { status: 500 }
     );
   }

@@ -1,18 +1,25 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useDoctors } from '@/hooks/use-doctors';
+import { useDataRefetch } from '@/contexts/DataRefetchContext';
 import { Search, Filter, AlertCircle, Mail, Phone, Stethoscope, Users } from 'lucide-react';
 
 export default function DoctoresPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
-  const { doctors, loading, error } = useDoctors({ limit: 50 });
+  const { doctors, loading, error, refetch } = useDoctors({ limit: 50 });
+  const { registerDoctorsRefetch } = useDataRefetch();
+
+  // Register the refetch function so AdminCreateMenu can trigger it
+  useEffect(() => {
+    registerDoctorsRefetch(refetch);
+  }, [refetch, registerDoctorsRefetch]);
 
   const filteredDoctors = useMemo(() => {
     return doctors.filter((doctor) =>
