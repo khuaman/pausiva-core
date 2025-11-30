@@ -115,14 +115,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Check active session on mount
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const mappedUser = await mapSupabaseUser(session.user, supabase);
-        setUser(mappedUser);
+    // Force clear all auth cookies and sessions on every app reload
+    const initializeAuth = async () => {
+      try {
+        // Clear all Supabase auth cookies
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+          const [name] = cookie.split('=');
+          const trimmedName = name.trim();
+          // Clear all supabase auth-related cookies
+          if (trimmedName.includes('supabase') || trimmedName.includes('auth')) {
+            document.cookie = `${trimmedName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname}`;
+            document.cookie = `${trimmedName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+          }
+        }
+        
+        // Clear session storage and local storage
+        sessionStorage.clear();
+        localStorage.removeItem('supabase.auth.token');
+        
+        // Sign out from Supabase
+        await supabase.auth.signOut({ scope: 'local' });
+        setUser(null);
+      } catch (error) {
+        console.error('Error clearing session:', error);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    });
+    };
+
+    initializeAuth();
 
     // Listen for auth changes
     const {
