@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Calendar, Clock, AlertCircle } from 'lucide-react';
-import { format, isAfter, isSameDay } from 'date-fns';
+import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAppointments } from '@/hooks/use-appointments';
 import type {
@@ -37,20 +37,24 @@ export default function Citas() {
     no_show: 'bg-muted text-muted-foreground border-border',
   };
 
-  const { todayAppointments, upcomingAppointments, pastAppointments } = useMemo(() => {
-    const now = new Date();
-    const todays: ApiAppointmentSummary[] = [];
-    const upcoming: ApiAppointmentSummary[] = [];
-    const past: ApiAppointmentSummary[] = [];
+  const { scheduledAppointments, completedAppointments, cancelledAppointments } = useMemo(() => {
+    const scheduled: ApiAppointmentSummary[] = [];
+    const completed: ApiAppointmentSummary[] = [];
+    const cancelled: ApiAppointmentSummary[] = [];
 
     appointments.forEach((appointment) => {
-      const scheduledAt = new Date(appointment.scheduledAt);
-      if (isSameDay(scheduledAt, now)) {
-        todays.push(appointment);
-      } else if (isAfter(scheduledAt, now)) {
-        upcoming.push(appointment);
-      } else {
-        past.push(appointment);
+      switch (appointment.status) {
+        case 'scheduled':
+        case 'rescheduled':
+          scheduled.push(appointment);
+          break;
+        case 'completed':
+          completed.push(appointment);
+          break;
+        case 'cancelled':
+        case 'no_show':
+          cancelled.push(appointment);
+          break;
       }
     });
 
@@ -60,9 +64,9 @@ export default function Citas() {
       new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime();
 
     return {
-      todayAppointments: todays.sort(asc),
-      upcomingAppointments: upcoming.sort(asc),
-      pastAppointments: past.sort(desc),
+      scheduledAppointments: scheduled.sort(asc),
+      completedAppointments: completed.sort(desc),
+      cancelledAppointments: cancelled.sort(desc),
     };
   }, [appointments]);
 
@@ -302,86 +306,86 @@ export default function Citas() {
         {/* Lista de Citas */}
         <section>
           <h2 className="text-xl font-semibold text-foreground mb-4">Lista de Citas</h2>
-          <Tabs defaultValue="proximas" className="space-y-6 sm:space-y-8">
+          <Tabs defaultValue="scheduled" className="space-y-6 sm:space-y-8">
             <TabsList className="grid w-full grid-cols-3 max-w-lg h-auto sm:h-12 bg-muted/50">
-              <TabsTrigger value="hoy" className="text-xs sm:text-sm lg:text-base font-medium py-2 sm:py-0">
-                <span className="hidden sm:inline">Hoy</span>
-                <span className="sm:hidden">Hoy</span>
-                <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold">{todayAppointments.length}</span>
+              <TabsTrigger value="scheduled" className="text-xs sm:text-sm lg:text-base font-medium py-2 sm:py-0">
+                <span className="hidden sm:inline">Programadas</span>
+                <span className="sm:hidden">Prog</span>
+                <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold">{scheduledAppointments.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="proximas" className="text-xs sm:text-sm lg:text-base font-medium py-2 sm:py-0">
-                <span className="hidden sm:inline">Próximas</span>
-                <span className="sm:hidden">Próx</span>
-                <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold">{upcomingAppointments.length}</span>
+              <TabsTrigger value="completed" className="text-xs sm:text-sm lg:text-base font-medium py-2 sm:py-0">
+                <span className="hidden sm:inline">Completadas</span>
+                <span className="sm:hidden">Comp</span>
+                <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold">{completedAppointments.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="pasadas" className="text-xs sm:text-sm lg:text-base font-medium py-2 sm:py-0">
-                <span className="hidden sm:inline">Pasadas</span>
-                <span className="sm:hidden">Ant</span>
-                <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold">{pastAppointments.length}</span>
+              <TabsTrigger value="cancelled" className="text-xs sm:text-sm lg:text-base font-medium py-2 sm:py-0">
+                <span className="hidden sm:inline">Canceladas</span>
+                <span className="sm:hidden">Canc</span>
+                <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold">{cancelledAppointments.length}</span>
               </TabsTrigger>
             </TabsList>
 
-          <TabsContent value="hoy" className="space-y-4">
+          <TabsContent value="scheduled" className="space-y-4">
             {loading ? (
               <Card className="border-dashed">
                 <CardContent className="p-12 text-center text-muted-foreground">
-                  Cargando citas de hoy...
+                  Cargando citas programadas...
                 </CardContent>
               </Card>
-            ) : todayAppointments.length > 0 ? (
-              todayAppointments.map(renderAppointmentCard)
+            ) : scheduledAppointments.length > 0 ? (
+              scheduledAppointments.map(renderAppointmentCard)
             ) : (
               <Card className="border-dashed">
                 <CardContent className="p-16 text-center">
                   <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
                     <Calendar className="h-10 w-10 text-primary" />
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No hay citas para hoy</h3>
-                  <p className="text-muted-foreground">No se han programado citas para el día de hoy</p>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No hay citas programadas</h3>
+                  <p className="text-muted-foreground">No se han encontrado citas con estado programado</p>
                 </CardContent>
               </Card>
             )}
           </TabsContent>
 
-          <TabsContent value="proximas" className="space-y-4">
+          <TabsContent value="completed" className="space-y-4">
             {loading ? (
               <Card className="border-dashed">
                 <CardContent className="p-12 text-center text-muted-foreground">
-                  Cargando próximas citas...
+                  Cargando citas completadas...
                 </CardContent>
               </Card>
-            ) : upcomingAppointments.length > 0 ? (
-              upcomingAppointments.map(renderAppointmentCard)
+            ) : completedAppointments.length > 0 ? (
+              completedAppointments.map(renderAppointmentCard)
             ) : (
               <Card className="border-dashed">
                 <CardContent className="p-16 text-center">
                   <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
                     <Calendar className="h-10 w-10 text-primary" />
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No hay citas próximas</h3>
-                  <p className="text-muted-foreground">No se han encontrado citas programadas próximamente</p>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No hay citas completadas</h3>
+                  <p className="text-muted-foreground">No se ha encontrado historial de citas completadas</p>
                 </CardContent>
               </Card>
             )}
           </TabsContent>
 
-          <TabsContent value="pasadas" className="space-y-4">
+          <TabsContent value="cancelled" className="space-y-4">
             {loading ? (
               <Card className="border-dashed">
                 <CardContent className="p-12 text-center text-muted-foreground">
-                  Cargando historial de citas...
+                  Cargando citas canceladas...
                 </CardContent>
               </Card>
-            ) : pastAppointments.length > 0 ? (
-              pastAppointments.map(renderAppointmentCard)
+            ) : cancelledAppointments.length > 0 ? (
+              cancelledAppointments.map(renderAppointmentCard)
             ) : (
               <Card className="border-dashed">
                 <CardContent className="p-16 text-center">
                   <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
                     <Calendar className="h-10 w-10 text-primary" />
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No hay citas pasadas</h3>
-                  <p className="text-muted-foreground">No se ha encontrado historial de citas</p>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No hay citas canceladas</h3>
+                  <p className="text-muted-foreground">No se ha encontrado historial de citas canceladas</p>
                 </CardContent>
               </Card>
             )}
