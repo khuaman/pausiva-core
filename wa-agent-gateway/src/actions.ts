@@ -218,5 +218,71 @@ async function handleFastAPIResponse({
   }
 }
 
+/**
+ * Send a proactive message to a user via WhatsApp
+ * Called by the platform/management system to reach patients
+ */
+export async function sendProactiveMessage({
+  phone,
+  message,
+  messageType = "text",
+  buttons,
+  metadata,
+}: {
+  phone: string;
+  message: string;
+  messageType?: "text" | "buttons";
+  buttons?: Array<{ id: string; title: string }>;
+  metadata?: {
+    source?: string;
+    reference_id?: string;
+    triggered_by?: string;
+  };
+}): Promise<{
+  success: boolean;
+  message_id?: string;
+  conversation_id?: string;
+  error?: string;
+}> {
+  try {
+    // Get or create conversation for this phone
+    const { conversation } = await getOrCreateConversation(phone);
+
+    // Send the message via WhatsApp
+    if (messageType === "buttons" && buttons && buttons.length > 0) {
+      await whatsappClient.sendButtons(phone, message, buttons);
+    } else {
+      await whatsappClient.sendTextMessage(phone, message);
+    }
+
+    // Save the message to the database as a system message
+    await saveMessage(conversation.id, message, "system", {
+      agentUsed: "platform",
+      metadata: {
+        proactive: true,
+        source: metadata?.source || "manual",
+        reference_id: metadata?.reference_id,
+        triggered_by: metadata?.triggered_by,
+      },
+    });
+
+    // Update conversation metadata
+    await updateConversation(conversation.threadId, {
+      messageCount: conversation.messageCount + 1,
+    });
+
+    return {
+      success: true,
+      conversation_id: conversation.id,
+    };
+  } catch (error) {
+    console.error("❌ Error in sendProactiveMessage:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
 // Re-export storage functions for use in handlers
 export { getActionType, setActionType, getUserByPhone } from "./lib/storage";

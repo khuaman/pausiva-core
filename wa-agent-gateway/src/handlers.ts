@@ -1,7 +1,8 @@
 import type { Request, Response } from "express";
 import { whatsappClient } from "./lib/whatsapp";
-import { runAndStream, startThread, getActionType, setActionType, getUserByPhone } from "./actions";
+import { runAndStream, startThread, getActionType, setActionType, getUserByPhone, sendProactiveMessage } from "./actions";
 import { getOrCreateConversation, forceNewConversation } from "./lib/storage";
+import { proactiveMessageSchema } from "./schemas";
 
 // Types for WhatsApp webhook payload
 interface WhatsAppMessage {
@@ -244,4 +245,61 @@ async function handleButtonReply(chatId: string, buttonId: string): Promise<void
     userInput: contextMessages[actionType] ?? "",
     userId,
   });
+}
+
+/**
+ * Handle proactive messages from the platform (POST /api/send-message)
+ * Allows the management system to send messages to patients via WhatsApp
+ */
+export async function handleProactiveMessage(req: Request, res: Response): Promise<void> {
+  // Validate API key for authentication
+  const apiKey = req.headers["x-api-key"];
+  const expectedApiKey = process.env.PLATFORM_API_KEY;
+
+  if (expectedApiKey && apiKey !== expectedApiKey) {
+    console.warn("⚠️ Unauthorized proactive message attempt");
+    res.status(401).json({ success: false, error: "Unauthorized" });
+    return;
+  }
+
+  // Validate request body
+  const parseResult = proactiveMessageSchema.safeParse(req.body);
+
+  if (!parseResult.success) {
+    console.warn("⚠️ Invalid proactive message request:", parseResult.error.flatten());
+    res.status(400).json({
+      success: false,
+      error: "Invalid request body",
+      details: parseResult.error.flatten(),
+    });
+    return;
+  }
+
+  const { phone, message, message_type, buttons, metadata } = parseResult.data;
+
+  console.log(`📤 Proactive message request for ${phone} (source: ${metadata?.source || "manual"})`);
+
+  try {
+    const result = await sendProactiveMessage({
+      phone,
+      message,
+      messageType: message_type,
+      buttons,
+      metadata,
+    });
+
+    if (result.success) {
+      console.log(`✅ Proactive message sent to ${phone}`);
+      res.status(200).json(result);
+    } else {
+      console.error(`❌ Failed to send proactive message to ${phone}:`, result.error);
+      res.status(500).json(result);
+    }
+  } catch (error) {
+    console.error(`❌ Error sending proactive message to ${phone}:`, error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
 }
