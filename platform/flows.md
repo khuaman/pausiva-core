@@ -5,7 +5,7 @@
 Pausiva ofrece acompañamiento integral a mujeres con menopausia desde tres perspectivas:
 
 - **Logística**: Facilitación del acceso a servicios
-- **Sintomatología**: Manejo de síntomas físicos  
+- **Sintomatología**: Manejo de síntomas físicos
 - **Emocional**: Soporte psicológico y bienestar
 
 **Pilares de Valor**: Consulta ginecológica/nutricional/psicológica, seguimiento sintomatológico, gestión digital centralizada, y educación sobre menopausia.
@@ -65,12 +65,13 @@ WHERE u.phone = '{phone_number}'
 
 - Crear registro en `followings` con `type = 'business'`, `contacted_at = now()`
 - Actualizar `patients.clinical_profile_json`: `{"onboarding_state": "collecting_info"}`
-- **Mensaje principal**: 
+- **Mensaje principal**:
+
   ```
   Hola, bienvenida a Pausiva 💜
-  
+
   Soy tu acompañante en esta etapa de la menopausia. Estoy aquí para ayudarte con todo lo que necesites.
-  
+
   Para conocerte mejor, ¿podrías contarme tu nombre y cómo te gustaría que te ayude en este momento?
   ```
 
@@ -98,15 +99,16 @@ WHERE u.phone = '{phone_number}'
 - Actualizar `patients.clinical_profile_json`: `{"onboarding_state": "scheduling_appointment", "initial_needs": extracted_needs}`
 - Crear registro en `followings` con `type = 'business'`, `summary = 'Onboarding: información inicial capturada'`
 - **Mensaje principal**:
+
   ```
   Gracias {users.full_name}, me alegra conocerte 💜
-  
+
   Entiendo que {resumir necesidad de forma empática}. Tranquila, estamos aquí para acompañarte en todo este proceso.
-  
+
   Para conocerte mejor y entender cómo podemos ayudarte, te ofrecemos una consulta gratuita. Es una oportunidad para que conozcas nuestro servicio y nuestro equipo de especialistas.
-  
+
   Agenda tu primera consulta gratuita aquí: [LINK_TAYCAL]
-  
+
   Es completamente sin costo y es el primer paso para comenzar tu camino hacia el bienestar 🌸
   ```
 
@@ -131,6 +133,7 @@ AND p.clinical_profile_json->>'onboarding_state' = 'scheduling_appointment'
 **Acción del Agente**:
 
 - Crear registro en `appointments`:
+
   ```sql
   INSERT INTO appointments (patient_id, doctor_id, type, status, scheduled_at)
   VALUES ({patient_id}, {doctor_id}, 'pre_consulta', 'scheduled', '{scheduled_at}')
@@ -138,6 +141,7 @@ AND p.clinical_profile_json->>'onboarding_state' = 'scheduling_appointment'
 
 - Actualizar `patients.clinical_profile_json`: `{"onboarding_state": "completed", "first_consultation_scheduled": true}`
 - Crear registro en `patient_timeline_events`:
+
   ```sql
   INSERT INTO patient_timeline_events (patient_id, event_type, occurred_at, source_table, source_id, summary)
   VALUES ({patient_id}, 'appointment', '{scheduled_at}', 'appointments', {appointment_id}, 'Primera consulta gratuita agendada')
@@ -145,15 +149,16 @@ AND p.clinical_profile_json->>'onboarding_state' = 'scheduling_appointment'
 
 - Obtener `users.full_name` y `doctors.specialty` para el mensaje
 - **Mensaje principal**:
+
   ```
   ¡Excelente, {users.full_name}! 🎉
-  
+
   Hemos confirmado tu consulta gratuita para el {appointments.scheduled_at::date} a las {appointments.scheduled_at::time}.
-  
+
   Esta consulta es completamente gratuita y es una oportunidad para que conozcas nuestro servicio y cómo podemos acompañarte en esta etapa.
-  
+
   Te esperamos con mucho cariño. Nuestro equipo está preparado para escucharte y responder todas tus preguntas.
-  
+
   El día de tu consulta te enviaré un recordatorio. Mientras tanto, si tienes alguna pregunta, no dudes en escribirme 💜
   ```
 
@@ -186,18 +191,19 @@ AND (p.clinical_profile_json->'appointment_reminders_sent'->>a.id::text->>'2days
 - Obtener información de la cita y doctor
 - Actualizar `patients.clinical_profile_json`: marcar `appointment_reminders_sent[{appointment_id}].2days = true`
 - **Mensaje principal**:
+
   ```
   Hola {users.full_name} 💜
-  
+
   Te recordamos que tienes una cita en 2 días:
-  
+
   📅 Fecha: {appointments.scheduled_at::date}
   ⏰ Hora: {appointments.scheduled_at::time}
   👩‍⚕️ Especialista: {doctors.specialty}
   📍 Tipo: {appointments.type}
-  
+
   Si necesitas cambiar o cancelar tu cita, avísame con anticipación.
-  
+
   ¡Te esperamos! 🌸
   ```
 
@@ -224,27 +230,29 @@ AND (p.clinical_profile_json->'appointment_reminders_sent'->>a.id::text->>'same_
 **Acción del Agente**:
 
 - Si es consulta gratuita (`appointments.type = 'pre_consulta'`):
+
   ```
   ¡Hola {users.full_name}! 💜
-  
+
   Recuerda que tienes tu consulta gratuita HOY a las {appointments.scheduled_at::time}.
-  
+
   Esta es una oportunidad para conocernos y entender cómo podemos ayudarte. Prepárate con cualquier pregunta o síntoma que quieras compartir.
-  
+
   ¡Nos vemos pronto! 🌸
   ```
 
 - Si es consulta presencial (`appointments.type = 'consulta'`):
+
   ```
   ¡Hola {users.full_name}! 💜
-  
+
   Recuerda que tienes tu consulta presencial HOY:
-  
+
   📅 {appointments.scheduled_at::date} a las {appointments.scheduled_at::time}
   👩‍⚕️ {doctors.specialty}
-  
+
   Te recomendamos llegar 10 minutos antes. Si tienes alguna pregunta o necesitas cambiar la hora, avísame con anticipación.
-  
+
   ¡Te esperamos! 🌸
   ```
 
@@ -277,16 +285,17 @@ AND (p.clinical_profile_json->>'package_offer_sent')::boolean IS NULL
 
 - Actualizar `patients.clinical_profile_json`: `{"package_offer_sent": true, "package_status": "pending"}`
 - **Mensaje principal**:
+
   ```
   ¡Hola {users.full_name}! 💜
-  
+
   Espero que tu consulta gratuita haya sido útil y te hayas sentido escuchada.
-  
+
   Queremos acompañarte de forma integral en esta etapa. Por eso te ofrecemos nuestro Plan de Seguimiento Exclusivo:
-  
+
   📋 Plan de seguimiento exclusivo
   💰 S/50 al mes*
-  
+
   Incluye:
   ✅ Diagnóstico médico ginecológico
   ✅ Plan de tratamiento hormonal
@@ -297,7 +306,7 @@ AND (p.clinical_profile_json->>'package_offer_sent')::boolean IS NULL
   ✅ Seguimiento constante vía WhatsApp
   ✅ Acceso a la comunidad privada con otras mujeres como tú
   ✅ Acceso a eventos, ofertas y programas exclusivos
-  
+
   ¿Te gustaría conocer más detalles o tienes alguna pregunta? Responde "Sí" para aceptar o "No" si prefieres pensarlo 💜
   ```
 
@@ -320,6 +329,7 @@ AND p.clinical_profile_json->>'package_status' = 'pending'
 **Acción del Agente**:
 
 - Crear registro en `memberships`:
+
   ```sql
   INSERT INTO memberships (patient_id, tier, status, price, currency, start_date, auto_renew)
   VALUES ({patient_id}, 'standard', 'active', 50.00, 'PEN', NOW(), true)
@@ -327,20 +337,22 @@ AND p.clinical_profile_json->>'package_status' = 'pending'
 
 - Actualizar `patients.clinical_profile_json`: `{"package_status": "accepted"}`
 - **Mensaje principal**:
+
   ```
   ¡Excelente decisión, {users.full_name}! 🎉💜
-  
+
   Estamos muy contentas de tenerte en nuestro Plan de Seguimiento Exclusivo. A partir de hoy comenzamos a trabajar juntas para que te sientas mejor.
-  
+
   En los próximos días recibirás:
   - Acceso a la comunidad privada
   - Información sobre tu plan personalizado
   - Próximos pasos según lo acordado en tu consulta
-  
+
   Si tienes alguna pregunta, escríbeme. Estoy aquí para acompañarte en todo momento 🌸
   ```
 
 - Crear registro en `patient_timeline_events`:
+
   ```sql
   INSERT INTO patient_timeline_events (patient_id, event_type, occurred_at, source_table, source_id, summary)
   VALUES ({patient_id}, 'plan', NOW(), 'memberships', {membership_id}, 'Plan Exclusivo S/50 aceptado')
@@ -366,13 +378,14 @@ AND p.clinical_profile_json->>'package_status' = 'pending'
 
 - Actualizar `patients.clinical_profile_json`: `{"package_status": "negotiating", "negotiation_attempts": 1}`
 - **Mensaje principal**:
+
   ```
   Entiendo perfectamente, {users.full_name} 💜
-  
+
   Sé que tomar decisiones sobre tu salud puede generar dudas. Es completamente normal.
-  
+
   ¿Hay algo específico que te preocupa o te gustaría saber más sobre el plan exclusivo? Puedo ayudarte a resolver cualquier duda que tengas.
-  
+
   También podemos hablar sobre opciones de pago o ajustar el plan según tus necesidades. Lo importante es que encuentres lo que mejor se adapte a ti 🌸
   ```
 
@@ -397,13 +410,14 @@ AND (p.clinical_profile_json->>'negotiation_attempts')::integer = 1
 
 - Actualizar `patients.clinical_profile_json`: `{"package_status": "declined", "negotiation_attempts": 2}`
 - **Mensaje principal**:
+
   ```
   {users.full_name}, entiendo tu decisión 💜
-  
+
   Queremos que sepas que siempre estarás bienvenida cuando sientas que es el momento adecuado para ti.
-  
+
   Mientras tanto, seguiré aquí para acompañarte con cualquier pregunta o síntoma que quieras compartir. No estás sola en este proceso.
-  
+
   Si cambias de opinión o necesitas algo, solo escríbeme. Estaré aquí para ti 🌸
   ```
 
@@ -443,16 +457,17 @@ AND (p.clinical_profile_json->'appointment_reminders_sent'->>a.id::text->>'same_
 **Acción del Agente**:
 
 - **Mensaje principal**:
+
   ```
   ¡Hola {users.full_name}! 💜
-  
+
   Recuerda que tienes tu consulta presencial HOY:
-  
+
   📅 {appointments.scheduled_at::date} a las {appointments.scheduled_at::time}
   👩‍⚕️ {doctors.specialty}
-  
+
   Te recomendamos llegar 10 minutos antes. Si tienes alguna pregunta o necesitas cambiar la hora, avísame con anticipación.
-  
+
   ¡Te esperamos! 🌸
   ```
 
@@ -490,32 +505,38 @@ AND NOT EXISTS (
 
 - Obtener datos de `plans.plan` (jsonb) que contiene prescripciones y próximos pasos
 - El formato de `plans.plan` puede ser:
+
   ```json
   {
-    "prescriptions": ["Terapia Hormonal: Estradiol 1mg/día", "Suplemento de Calcio + Vitamina D"],
+    "prescriptions": [
+      "Terapia Hormonal: Estradiol 1mg/día",
+      "Suplemento de Calcio + Vitamina D"
+    ],
     "next_steps": "Control en 3 meses. Evaluar respuesta a tratamiento hormonal. Solicitar densitometría ósea."
   }
   ```
 
 - **Mensaje principal**:
+
   ```
   ¡Hola {users.full_name}! 💜
-  
+
   Espero que tu consulta haya sido útil. Aquí tienes un resumen de lo acordado:
-  
+
   💊 Prescripciones:
   {formatear cada prescripción de plans.plan->'prescriptions' con bullet point}
   • {prescripcion_1}
   • {prescripcion_2}
-  
+
   📋 Próximos pasos:
   {plans.plan->>'next_steps'}
-  
+
   Si tienes alguna duda sobre tus prescripciones o próximos pasos, no dudes en escribirme. Estoy aquí para acompañarte 🌸
   ```
 
 - Crear registro en `followings` con `type = 'medications'`, `appointment_id = {appointment_id}`, `summary = 'Prescripciones y próximos pasos enviados'`
 - Crear registro en `patient_timeline_events`:
+
   ```sql
   INSERT INTO patient_timeline_events (patient_id, event_type, occurred_at, source_table, source_id, summary)
   VALUES ({patient_id}, 'plan', NOW(), 'plans', {plan_id}, 'Prescripciones y próximos pasos enviados')
@@ -556,49 +577,53 @@ Si tienes alguna duda sobre tus prescripciones o próximos pasos, no dudes en es
 
 - Clasificar nivel de riesgo usando TriageAgent
 - Crear registro en `followings`:
+
   ```sql
   INSERT INTO followings (patient_id, type, severity_score, is_urgent, summary, contacted_at, message_count)
   VALUES ({patient_id}, 'symptoms', {risk_score}, {is_high_risk}, {symptom_summary}, NOW(), 1)
   ```
 
 - **Si riesgo es HIGH (`severity_score >= 80` o `is_urgent = true`)**:
+
   ```
   {users.full_name}, lo que describes suena serio y requiere atención médica urgente.
-  
+
   Por favor, contacta a tu servicio de salud local o acude a urgencias lo antes posible.
-  
+
   Si estás en Perú, puedes llamar a:
   - Emergencias: 105
   - Salud en Casa: 107
-  
+
   ¿Hay alguien que pueda acompañarte?
   ```
 
                                 - **Acción**: `["SEND_MESSAGE", "OPEN_RISK_ALERT"]`
 
 - **Si riesgo es MEDIUM (`severity_score 40-79`)**:
+
   ```
   Entiendo que te sientes {resumir síntoma}, {users.full_name} 💜
-  
+
   Te recomiendo que hables con tu médica sobre esto en los próximos días. Llevar un registro de cómo te sientes puede ser muy útil para tu próxima consulta.
-  
+
   Mientras tanto, aquí tienes algunas recomendaciones generales de autocuidado que pueden ayudarte:
-  
+
   {generar recomendaciones según síntomas - ver Paso 6.2}
   ```
 
                                 - **Acción**: `["SEND_MESSAGE", "UPDATE_SYMPTOM_TRACKING"]`
 
 - **Si riesgo es LOW o NONE (`severity_score 0-39`)**:
+
   ```
   Entiendo cómo te sientes, {users.full_name} 💜
-  
+
   Es normal experimentar estos síntomas durante la menopausia. No estás sola en esto.
-  
+
   Aquí tienes algunas recomendaciones generales que pueden ayudarte a sentirte mejor:
-  
+
   {generar recomendaciones según síntomas - ver Paso 6.2}
-  
+
   Recuerda que estas son solo recomendaciones generales de autocuidado. Si los síntomas persisten o empeoran, te recomiendo consultar con tu médica.
   ```
 
@@ -679,7 +704,6 @@ AND (p.clinical_profile_json->>'daily_followup_active')::boolean IS NULL
   VALUES ({patient_id}, 'followup', NOW(), 'appointments', {appointment_id}, 'Seguimiento diario activado')
   ```
 
-
 ### Paso 7.2: Envío de Check-in Diario
 
 **Trigger**: Cron job diario que corre a las 7:00 PM
@@ -708,13 +732,14 @@ AND NOT EXISTS (
 **Acción del Agente**:
 
 - **Mensaje principal**:
+
   ```
   ¡Hola {users.full_name}! 💜
-  
+
   ¿Cómo estás hoy? Me encantaría saber cómo te has sentido durante el día.
-  
+
   Recuerda que estoy aquí para acompañarte y escucharte. Comparte conmigo cómo te sientes, cualquier síntoma que hayas notado, o simplemente cómo ha sido tu día.
-  
+
   Tu bienestar es importante para mí 🌸
   ```
 
@@ -744,12 +769,10 @@ LIMIT 1
 
 **Acción del Agente**:
 
-- Analizar respuesta del usuario para identificar:
-                                - Estado emocional general
-                                - Síntomas mencionados (bochornos, insomnio, cansancio, ansiedad, dolores, etc.)
-                                - Nivel de bienestar percibido
+- Analizar respuesta del usuario para identificar: - Estado emocional general - Síntomas mencionados (bochornos, insomnio, cansancio, ansiedad, dolores, etc.) - Nivel de bienestar percibido
 - Clasificar nivel de riesgo usando TriageAgent
 - Actualizar registro en `followings`:
+
   ```sql
   UPDATE followings
   SET message_count = message_count + 1,
@@ -882,14 +905,16 @@ Seguiré aquí para acompañarte cada día. Si en algún momento necesitas habla
 ```
 
 - **Mensaje final**:
+
   ```
   Recuerda que estas son recomendaciones generales de autocuidado. Si los síntomas persisten, empeoran, o te preocupan, es importante que consultes con tu médica.
-  
+
   Mañana te escribiré de nuevo para saber cómo estás. Estoy aquí para acompañarte 💜
   ```
 
 - Actualizar `followings.message_count` y `followings.summary` con la respuesta completa
 - Crear registro en `patient_timeline_events`:
+
   ```sql
   INSERT INTO patient_timeline_events (patient_id, event_type, occurred_at, source_table, source_id, summary, payload)
   VALUES ({patient_id}, 'followup', NOW(), 'followings', {following_id}, 'Check-in diario: {resumen}', {jsonb_con_sintomas_y_recomendaciones})
@@ -906,15 +931,16 @@ Seguiré aquí para acompañarte cada día. Si en algún momento necesitas habla
 **Acción del Agente**:
 
 - **Mensaje principal**:
+
   ```
   {users.full_name}, lo que describes suena serio y requiere atención médica urgente.
-  
+
   Por favor, contacta a tu servicio de salud local o acude a urgencias lo antes posible.
-  
+
   Si estás en Perú, puedes llamar a:
   - Emergencias: 105
   - Salud en Casa: 107
-  
+
   ¿Hay alguien que pueda acompañarte?
   ```
 
@@ -936,13 +962,9 @@ Seguiré aquí para acompañarte cada día. Si en algún momento necesitas habla
 
 ### Triggers Externos
 
-- **Webhook de Taycal**: Cuando se agenda una cita (`appointment_scheduled`)
-                                - Payload: `{phone_number, appointment_date, appointment_time, appointment_id, doctor_id, appointment_type}`
-- **Webhook de Sistema**: Cuando se completa una cita (`appointment_completed`)
-                                - Actualizar `appointments.status = 'completed'`
-- **Cron Jobs**: 
-                                - Recordatorios (diario a las 8:00 AM)
-                                - Check-in diario (diario a las 7:00 PM)
+- **Webhook de Taycal**: Cuando se agenda una cita (`appointment_scheduled`) - Payload: `{phone_number, appointment_date, appointment_time, appointment_id, doctor_id, appointment_type}`
+- **Webhook de Sistema**: Cuando se completa una cita (`appointment_completed`) - Actualizar `appointments.status = 'completed'`
+- **Cron Jobs**: - Recordatorios (diario a las 8:00 AM) - Check-in diario (diario a las 7:00 PM)
 
 ### Diferenciación de Flujos
 
@@ -974,3 +996,157 @@ Estos registros aparecerán en el dashboard del frontend para seguimiento del pa
 - Validar emociones sin minimizar
 - Enfoque en acompañamiento diario, amable y cercano
 - Recordar siempre que NO es médico, solo ofrece recomendaciones generales de autocuidado
+
+---
+
+## Diagrama de Flujos Completo
+
+```mermaid
+graph TD
+    Start([Usuario envía primer mensaje]) --> CheckNewPatient{¿Es paciente nueva?}
+
+    %% FLUJO 1: Onboarding
+    CheckNewPatient -->|Sí| F1_1[FLUJO 1.1: Mensaje Bienvenida]
+    F1_1 --> F1_1_Action[Crear following type=business<br/>Actualizar onboarding_state=collecting_info]
+    F1_1_Action --> F1_2[FLUJO 1.2: Usuario proporciona info]
+    F1_2 --> F1_2_Action[Extraer nombre y necesidades<br/>onboarding_state=scheduling_appointment]
+    F1_2_Action --> F1_2_Send[Enviar link Taycal<br/>Ofrecer consulta gratuita]
+    F1_2_Send --> F1_3[FLUJO 1.3: Usuario agenda en Taycal]
+    F1_3 --> F1_3_Action[Crear appointment type=pre_consulta<br/>onboarding_state=completed<br/>Programar recordatorios]
+    F1_3_Action --> F1_3_Send[Confirmar cita gratuita]
+
+    %% FLUJO 2: Recordatorios
+    F1_3_Action --> F2_Cron[CRON: Diario 8:00 AM]
+    F2_Cron --> F2_Check{¿Cita en 2 días?}
+    F2_Check -->|Sí| F2_1[FLUJO 2.1: Recordatorio 2 días antes]
+    F2_1 --> F2_1_Action[Marcar reminder_sent.2days=true<br/>Crear following]
+
+    F2_Cron --> F2_Check2{¿Cita hoy?}
+    F2_Check2 -->|Sí| F2_2[FLUJO 2.2: Recordatorio mismo día]
+    F2_2 --> F2_2_Action[Marcar reminder_sent.same_day=true<br/>Crear following]
+
+    %% Cita se completa
+    F1_3_Send --> AppointmentDay[Día de la cita]
+    AppointmentDay --> AppointmentCompleted{¿Cita completada?}
+
+    %% FLUJO 5: Post-Cita
+    AppointmentCompleted -->|Sí| F5_1[FLUJO 5.1: Enviar prescripciones]
+    F5_1 --> F5_1_Action[Obtener plans.plan<br/>Formatear prescripciones y próximos pasos]
+    F5_1_Action --> F5_1_Send[Enviar resumen de consulta<br/>Crear following type=medications]
+
+    %% FLUJO 3: Venta de Plan
+    F5_1_Send --> CheckPreconsulta{¿Es pre_consulta?}
+    CheckPreconsulta -->|Sí| F3_1[FLUJO 3.1: Ofrecer Plan S/50]
+    F3_1 --> F3_1_Action[package_offer_sent=true<br/>package_status=pending]
+    F3_1_Action --> F3_Response{Respuesta usuario}
+
+    F3_Response -->|Acepta| F3_2[FLUJO 3.2: Usuario acepta]
+    F3_2 --> F3_2_Action[Crear membership tier=standard<br/>package_status=accepted<br/>Crear timeline event]
+    F3_2_Action --> F3_2_Send[Confirmar plan aceptado<br/>Enviar próximos pasos]
+
+    F3_Response -->|Rechaza| F3_3[FLUJO 3.3: Primera negociación]
+    F3_3 --> F3_3_Action[package_status=negotiating<br/>negotiation_attempts=1]
+    F3_3_Action --> F3_3_Send[Preguntar dudas<br/>Ofrecer opciones de pago]
+    F3_3_Send --> F3_Response2{Respuesta usuario}
+
+    F3_Response2 -->|Acepta| F3_5[FLUJO 3.5: Acepta después<br/>de negociación]
+    F3_5 --> F3_2_Action
+
+    F3_Response2 -->|Rechaza| F3_4[FLUJO 3.4: Segunda negociación]
+    F3_4 --> F3_4_Action[package_status=declined<br/>negotiation_attempts=2]
+    F3_4_Action --> F3_4_Send[Mensaje de comprensión<br/>Dejar puerta abierta]
+
+    %% Check si es consulta con doctor
+    CheckPreconsulta -->|No, es consulta| F7_Activate[FLUJO 7.1: Activar seguimiento diario]
+    F7_Activate --> F7_Activate_Action[daily_followup_active=true<br/>Crear timeline event]
+    F3_2_Send --> F7_Activate
+
+    %% FLUJO 7: Seguimiento Diario
+    F7_Activate_Action --> F7_Cron[CRON: Diario 7:00 PM]
+    F7_Cron --> F7_Check{¿Seguimiento activo<br/>y no enviado hoy?}
+    F7_Check -->|Sí| F7_2[FLUJO 7.2: Enviar check-in diario]
+    F7_2 --> F7_2_Action[Crear following type=emotional<br/>message_count=1]
+    F7_2_Action --> F7_2_Send[¿Cómo estás hoy?]
+
+    F7_2_Send --> F7_3[FLUJO 7.3: Usuario responde]
+    F7_3 --> F7_3_Action[Analizar respuesta<br/>Clasificar riesgo con TriageAgent<br/>Actualizar severity_score]
+    F7_3_Action --> F7_Risk{¿Nivel de riesgo?}
+
+    F7_Risk -->|HIGH: score≥80| F7_5[FLUJO 7.5: Alto riesgo]
+    F7_5 --> F7_5_Action[is_urgent=true<br/>Crear alerta en dashboard]
+    F7_5_Action --> F7_5_Send[Mensaje de urgencia<br/>Números de emergencia<br/>OPEN_RISK_ALERT]
+
+    F7_Risk -->|MEDIUM o LOW| F7_4[FLUJO 7.4: Recomendaciones personalizadas]
+    F7_4 --> F7_4_Action[Generar recomendaciones según síntomas<br/>Actualizar following summary<br/>Crear timeline event]
+    F7_4_Action --> F7_4_Send[Enviar recomendaciones de autocuidado<br/>Mensaje de acompañamiento]
+
+    F7_5_Send --> F7_Loop[Continuar seguimiento diario]
+    F7_4_Send --> F7_Loop
+    F7_Loop --> F7_Cron
+
+    %% FLUJO 6: Manejo de Síntomas (puede ocurrir en cualquier momento)
+    CheckNewPatient -->|No| CheckSymptoms{¿Mensaje menciona<br/>síntomas?}
+    CheckSymptoms -->|Sí| F6_1[FLUJO 6.1: Usuario reporta síntomas]
+    F6_1 --> F6_1_Action[Clasificar riesgo con TriageAgent<br/>Crear following type=symptoms]
+    F6_1_Action --> F6_Risk{¿Nivel de riesgo?}
+
+    F6_Risk -->|HIGH: score≥80| F6_High[Enviar mensaje de urgencia<br/>Números de emergencia<br/>OPEN_RISK_ALERT]
+    F6_Risk -->|MEDIUM: 40-79| F6_Med[Recomendar consulta médica<br/>+ Recomendaciones de autocuidado]
+    F6_Risk -->|LOW: 0-39| F6_Low[FLUJO 6.2: Recomendaciones<br/>no médicas]
+
+    F6_Low --> F6_2_Action[Generar recomendaciones según<br/>tipo de síntoma:<br/>- Bochornos<br/>- Insomnio<br/>- Cansancio<br/>- Ansiedad<br/>- Dolores]
+    F6_2_Action --> F6_2_Send[Enviar recomendaciones personalizadas<br/>UPDATE_SYMPTOM_TRACKING]
+
+    F6_Med --> F6_2_Action
+
+    %% FLUJO 4: Recordatorio Presencial (específico)
+    F2_Check2 -->|Sí y type=consulta| F4_1[FLUJO 4.1: Recordatorio<br/>cita presencial]
+    F4_1 --> F4_1_Action[Enviar recordatorio con<br/>instrucciones presenciales<br/>Llegar 10 min antes]
+
+    CheckSymptoms -->|No| NormalConversation[Conversación normal<br/>Responder preguntas<br/>Acompañamiento]
+
+    %% Estilos
+    classDef onboarding fill:#e1f5ff,stroke:#0288d1,stroke-width:2px
+    classDef reminders fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    classDef sales fill:#f3e5f5,stroke:#8e24aa,stroke-width:2px
+    classDef postcita fill:#e8f5e9,stroke:#43a047,stroke-width:2px
+    classDef symptoms fill:#ffebee,stroke:#e53935,stroke-width:2px
+    classDef daily fill:#fce4ec,stroke:#d81b60,stroke-width:2px
+    classDef decision fill:#fff3e0,stroke:#fb8c00,stroke-width:3px
+    classDef action fill:#f5f5f5,stroke:#616161,stroke-width:1px
+
+    class F1_1,F1_2,F1_3,F1_1_Action,F1_2_Action,F1_2_Send,F1_3_Action,F1_3_Send onboarding
+    class F2_1,F2_2,F2_Cron,F2_1_Action,F2_2_Action,F4_1,F4_1_Action reminders
+    class F3_1,F3_2,F3_3,F3_4,F3_5,F3_1_Action,F3_2_Action,F3_2_Send,F3_3_Action,F3_3_Send,F3_4_Action,F3_4_Send sales
+    class F5_1,F5_1_Action,F5_1_Send postcita
+    class F6_1,F6_1_Action,F6_2_Action,F6_2_Send,F6_High,F6_Med,F6_Low symptoms
+    class F7_2,F7_3,F7_4,F7_5,F7_Activate,F7_Cron,F7_2_Action,F7_2_Send,F7_3_Action,F7_4_Action,F7_4_Send,F7_5_Action,F7_5_Send,F7_Loop,F7_Activate_Action daily
+    class CheckNewPatient,CheckPreconsulta,CheckSymptoms,F2_Check,F2_Check2,F3_Response,F3_Response2,F6_Risk,F7_Risk,F7_Check,AppointmentCompleted decision
+```
+
+### Leyenda del Diagrama
+
+**Colores:**
+
+- 🔵 **Azul**: Flujo 1 - Onboarding
+- 🟡 **Amarillo**: Flujos 2 y 4 - Recordatorios de Citas
+- 🟣 **Morado**: Flujo 3 - Venta de Plan S/50
+- 🟢 **Verde**: Flujo 5 - Post-Cita (Prescripciones)
+- 🔴 **Rojo**: Flujo 6 - Manejo de Síntomas
+- 💗 **Rosa**: Flujo 7 - Seguimiento Diario
+- 🟠 **Naranja**: Decisiones y Validaciones
+
+**Puntos Clave del Flujo:**
+
+1. **Entrada Única**: Todo comienza con el mensaje del usuario
+2. **Bifurcación Principal**: Paciente nueva vs. paciente existente
+3. **Flujos Paralelos**:
+   - Recordatorios (CRON 8:00 AM)
+   - Check-ins diarios (CRON 7:00 PM)
+   - Manejo de síntomas (cualquier momento)
+4. **Activadores Críticos**:
+   - Completar pre_consulta → Ofrecer Plan S/50
+   - Completar consulta → Activar seguimiento diario
+   - Cualquier cita completada → Enviar prescripciones
+5. **Sistema de Riesgo**: TriageAgent clasifica síntomas en HIGH/MEDIUM/LOW
+6. **Persistencia**: Seguimiento diario continúa indefinidamente una vez activado
