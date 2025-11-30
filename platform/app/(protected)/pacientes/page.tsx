@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -8,12 +8,19 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { usePatients } from '@/hooks/use-patients';
+import { useDataRefetch } from '@/contexts/DataRefetchContext';
 import { Search, Filter, AlertCircle } from 'lucide-react';
 
 export default function PacientesPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
-  const { patients, loading, error } = usePatients({ limit: 50 });
+  const { patients, loading, error, refetch } = usePatients({ limit: 50 });
+  const { registerPatientsRefetch } = useDataRefetch();
+
+  // Register the refetch function so AdminCreateMenu can trigger it
+  useEffect(() => {
+    registerPatientsRefetch(refetch);
+  }, [refetch, registerPatientsRefetch]);
 
   // Calculate age from birth date
   const calculateAge = (birthDate: string | null) => {

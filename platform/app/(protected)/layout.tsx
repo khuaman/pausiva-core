@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { DataRefetchProvider } from "@/contexts/DataRefetchContext";
 import { Sidebar } from "@/components/layout/Sidebar";
 
 // Role-based access control configuration
@@ -67,10 +68,12 @@ export default function ProtectedLayout({
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
-      <Sidebar />
-      {children}
-    </div>
+    <DataRefetchProvider>
+      <div className="flex h-screen w-full overflow-hidden bg-background">
+        <Sidebar />
+        {children}
+      </div>
+    </DataRefetchProvider>
   );
 }
 

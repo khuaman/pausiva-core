@@ -242,6 +242,16 @@ export async function POST(request: NextRequest) {
     if (doctorInsertError) {
       await teardownProvisionedUser(supabase, userId);
       console.error('[api/users/doctors] Failed to insert doctor row', doctorInsertError);
+      
+      // Check for unique constraint violation on CMP
+      if (doctorInsertError.code === '23505' && 
+          doctorInsertError.message?.includes('cmp')) {
+        return NextResponse.json(
+          { error: 'Ya existe un doctor registrado con este CMP.' },
+          { status: 409 }
+        );
+      }
+      
       return NextResponse.json(
         { error: 'Could not create doctor record in Supabase.' },
         { status: 500 }
@@ -260,9 +270,20 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error('[api/users/doctors] Error creating doctor', error);
-    const message = error instanceof Error ? error.message : 'Unexpected error creating doctor.';
+    const errorMessage = error instanceof Error ? error.message : 'Unexpected error creating doctor.';
+    
+    // Check for duplicate email error
+    if (errorMessage.includes('User already registered') || 
+        errorMessage.includes('already been registered') ||
+        errorMessage.includes('duplicate')) {
+      return NextResponse.json(
+        { error: 'El correo electrónico ya está registrado en el sistema.' },
+        { status: 409 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: message },
+      { error: errorMessage },
       { status: 500 }
     );
   }
