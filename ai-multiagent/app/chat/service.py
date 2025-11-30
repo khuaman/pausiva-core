@@ -116,26 +116,6 @@ class ChatService:
             agent_used="checkin",
         )
 
-    def get_patient_context(self, phone: str) -> dict:
-        """
-        Get the context for a patient.
-
-        Args:
-            phone: Patient phone number
-
-        Returns:
-            Dictionary with patient context
-        """
-        patient_data = self.patient_repo.get_by_phone(phone)
-
-        return {
-            "patient": patient_data,
-            "active_medications": [],  # TODO: Load from storage
-            "upcoming_appointments": [],  # TODO: Load from storage
-            "recent_symptoms": [],  # TODO: Load from storage
-            "conversation_summary": "",
-        }
-
     def _build_patient_context(self, phone: str) -> PatientContextData:
         """Build patient context data for the graph."""
         patient_data = self.patient_repo.get_by_phone(phone)
