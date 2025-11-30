@@ -9,6 +9,7 @@ This is a WhatsApp webhook service that integrates with the Pausiva AI multi-age
 ## Architecture
 
 ### File Structure
+
 ```
 src/
 ├── index.ts           - Express app setup and server initialization
@@ -25,6 +26,7 @@ src/
 ```
 
 ### Core Flow
+
 1. **Webhook Reception** (`src/handlers.ts`): Express server receives WhatsApp webhook events (verification & messages)
 2. **User Lookup** (`src/lib/storage.ts`): Fetches user_id from `public.users` by phone number
 3. **Thread Management** (`src/lib/storage.ts`): Creates/retrieves conversations in Supabase, caches in Redis
@@ -33,13 +35,16 @@ src/
 6. **Response Delivery** (`src/lib/whatsapp.ts`): Sends agent responses back via WhatsApp using Wapi.js
 
 ### Endpoints
+
 - `GET /` - Health check endpoint (returns `{"status": "ok", "service": "whatsapp-agent-api"}`)
 - `GET /webhook` - WhatsApp webhook verification (Meta requirement)
 - `POST /webhook` - WhatsApp message webhook handler
+- `POST /api/send-message` - Proactive message endpoint (for platform to send messages to users)
 
 ### Key Patterns
 
 **Data Storage**:
+
 - **Supabase (PostgreSQL)**: Source of truth for conversations, messages, and user data
 - **Redis**: Caching layer for fast lookups (thread IDs, action types, user info)
 - Tables managed by `platform/supabase/migrations/`:
@@ -49,54 +54,89 @@ src/
   - `public.messages` - Individual messages in conversations
 
 **Thread/Conversation Mapping**:
+
 - Each WhatsApp phone number maps to a conversation in Supabase
 - `thread_id` (UUID) uniquely identifies each conversation
 - Only one active conversation per phone number (enforced by partial unique index)
 
 **Action Types**:
+
 - `chat`: General conversation with the agent
 - `process_data`: Appointment scheduling workflow
 - `query_data`: Data querying workflow
 
 **FastAPI Integration** (`src/lib/fastapi.ts`):
+
 - Calls `POST /chat/message` with `thread_id`, `phone`, `message`, and `user_id`
 - Calls `POST /chat/checkin` to start new conversations
 - Returns structured response with `reply_text`, `risk_level`, `agent_used`, etc.
 
+**Proactive Messages** (`POST /api/send-message`):
+
+- Allows the platform to send messages directly to patients via WhatsApp
+- Requires `X-API-Key` header for authentication (set via `PLATFORM_API_KEY` env var)
+- Request body:
+  ```json
+  {
+    "phone": "573001234567",
+    "message": "Your appointment is tomorrow at 10am",
+    "message_type": "text", // or "buttons"
+    "buttons": [
+      // optional, only for message_type: "buttons"
+      { "id": "confirm", "title": "Confirmar" },
+      { "id": "reschedule", "title": "Reagendar" }
+    ],
+    "metadata": {
+      // optional
+      "source": "appointment_reminder",
+      "reference_id": "uuid-of-appointment",
+      "triggered_by": "uuid-of-staff-member"
+    }
+  }
+  ```
+- Messages are saved to the conversation as `role: "system"` with `agent_used: "platform"`
+
 ## Development Commands
 
 **Run in Development** (with auto-reload):
+
 ```bash
 npm run dev
 ```
 
 **Build TypeScript**:
+
 ```bash
 npm run build
 ```
 
 **Run Production Build**:
+
 ```bash
 npm start
 ```
 
 **Type Checking**:
+
 ```bash
 npx tsc --noEmit
 ```
 
 **Drizzle Commands**:
+
 ```bash
 npm run db:generate  # Generate migrations from schema
 npm run db:push      # Push schema changes to database
 ```
 
 **Docker Development**:
+
 ```bash
 docker-compose up
 ```
 
 **Docker Production Build**:
+
 ```bash
 docker-compose -f docker-compose.prod.yml up --build
 ```
@@ -110,6 +150,7 @@ cp .env.example .env
 ```
 
 **WhatsApp (Wapi.js)** - Required:
+
 ```
 WHATSAPP_API_ACCESS_TOKEN=your_meta_access_token
 WHATSAPP_BUSINESS_ACCOUNT_ID=your_business_account_id
@@ -118,33 +159,45 @@ WHATSAPP_WEBHOOK_SECRET=your_webhook_verification_token
 ```
 
 **FastAPI Backend** - Required (ai-multiagent):
+
 ```
 FASTAPI_URL=http://localhost:8099
 ```
 
 **Database (Supabase)** - Required:
+
 ```
 DATABASE_URL=postgresql://postgres:password@localhost:54322/postgres
 ```
 
 **Redis** - Required for caching (defaults to localhost if not set):
+
 ```
 REDIS_URL=redis://localhost:6379
 ```
 
 **Server**:
+
 ```
 PORT=3000
+```
+
+**Platform Integration** (for proactive messages):
+
+```
+PLATFORM_API_KEY=your_secure_api_key
 ```
 
 ## Important Implementation Details
 
 **Wapi.js Integration**:
+
 - The service uses Express for webhook handling, NOT Wapi.js's built-in webhook server
 - `wapiClient.initiate()` is intentionally NOT called - only use Wapi.js for sending messages
 - Wapi.js button/list interactions are limited to 3 buttons max per WhatsApp API constraints
 
 **Message Handling**:
+
 - Start commands (`start`, `hi`, `hello`, `hola`, `/start`) always create a new thread
 - Interactive button replies map to action types via `actionMap` in handlers.ts
 - All webhook responses must return 200 status to acknowledge receipt to Meta
@@ -155,16 +208,19 @@ PORT=3000
   - `action_help` → "chat" (Obtener Ayuda)
 
 **User Identification**:
+
 - On each message, the system looks up `user_id` from `public.users` by phone number
 - If found, `user_id` is passed to FastAPI for personalized responses
 - If not found, conversation continues without user_id (anonymous mode)
 
 **Data Validation**:
+
 - `recordSchema` in `src/schemas.ts` defines the expected structure for parsed data
 - `whatsAppMessageSchema` validates incoming WhatsApp webhook messages
 - Schema uses Zod for runtime type validation
 
 **Drizzle ORM**:
+
 - Uses `postgres` driver for Supabase connection
 - Schema definitions in `src/lib/schema.ts` mirror `platform/` migrations
 - Read-only access to `users` and `patients` tables
@@ -175,6 +231,7 @@ PORT=3000
 The wa-agent-gateway uses tables managed by `platform/supabase/migrations/`:
 
 **conversations** (managed by this service):
+
 - `id` (uuid) - Primary key
 - `thread_id` (text) - Unique identifier for AI backend
 - `patient_id` (uuid) - FK to patients (nullable)
@@ -188,6 +245,7 @@ The wa-agent-gateway uses tables managed by `platform/supabase/migrations/`:
 - `risk_score` (int) - Risk score 0-100
 
 **messages** (managed by this service):
+
 - `id` (uuid) - Primary key
 - `conversation_id` (uuid) - FK to conversations
 - `external_id` (text) - WhatsApp message ID
@@ -198,6 +256,7 @@ The wa-agent-gateway uses tables managed by `platform/supabase/migrations/`:
 ## Deployment
 
 **Deployment Scripts** (`scripts/`):
+
 - `setup.sh` - Initial server setup
 - `deploy.sh` - Deploy/update the service
 - `restart.sh` - Restart the service
@@ -205,6 +264,7 @@ The wa-agent-gateway uses tables managed by `platform/supabase/migrations/`:
 - `logs.sh` - View service logs
 
 **Docker**:
+
 - `Dockerfile` - Development image with hot reload
 - `Dockerfile.prod` - Production image with optimized build
 - `docker-compose.yml` - Development environment (includes Redis)
@@ -213,6 +273,7 @@ The wa-agent-gateway uses tables managed by `platform/supabase/migrations/`:
 ## Dependencies
 
 **Runtime**:
+
 - `@wapijs/wapi.js` - WhatsApp Business API client
 - `drizzle-orm` - TypeScript ORM for PostgreSQL
 - `postgres` - PostgreSQL driver for Drizzle
@@ -222,6 +283,7 @@ The wa-agent-gateway uses tables managed by `platform/supabase/migrations/`:
 - `zod` - Runtime type validation
 
 **Development**:
+
 - `drizzle-kit` - Drizzle CLI for migrations
 - `typescript` - TypeScript compiler
 - `tsx` - TypeScript execution and watch mode
