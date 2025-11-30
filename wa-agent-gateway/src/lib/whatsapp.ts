@@ -1,6 +1,11 @@
 /**
  * WhatsApp client using Wapi.js SDK
  * https://javascript.wapikit.com/guide/building-your-application/creating-wapi-client
+ *
+ * Note: We use a hybrid approach:
+ * - Wapi.js for sending messages (text, buttons, lists)
+ * - Direct WhatsApp Cloud API for marking messages as read (typing indicator)
+ *   since wapi.js doesn't expose this on the message manager
  */
 
 import {
@@ -9,6 +14,10 @@ import {
   ButtonInteractionMessage,
   ListInteractionMessage,
 } from "@wapijs/wapi.js";
+
+// WhatsApp Cloud API constants
+const GRAPH_API_VERSION = "v19.0";
+const GRAPH_API_BASE_URL = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 
 // Create Wapi.js client instance
 const wapiClient = new Client({
@@ -119,6 +128,58 @@ class WhatsAppClient {
     } catch (error) {
       console.error("❌ Failed to send list:", error);
       throw error;
+    }
+  }
+
+  /**
+   * Mark a message as read and trigger typing indicator
+   *
+   * This uses direct WhatsApp Cloud API call since wapi.js doesn't expose
+   * this functionality on the message manager (only available on event objects
+   * when using wapi.js's built-in webhook handling).
+   *
+   * When you mark a message as read, it:
+   * 1. Shows "read" receipts (blue checkmarks) on the user's side
+   * 2. Triggers the typing indicator ("...") until you send a response
+   *
+   * Note: Typing indicator stays visible for up to 25 seconds or until
+   * you send a message, whichever comes first.
+   */
+  async markAsRead(messageId: string): Promise<void> {
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    const accessToken = process.env.WHATSAPP_API_ACCESS_TOKEN;
+
+    if (!phoneNumberId || !accessToken) {
+      console.warn("⚠️ Missing WhatsApp credentials for markAsRead");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${GRAPH_API_BASE_URL}/${phoneNumberId}/messages`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messaging_product: "whatsapp",
+            status: "read",
+            message_id: messageId,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        console.log("✅ Message marked as read (typing indicator triggered)");
+      } else {
+        const errorText = await response.text();
+        console.error("❌ Failed to mark message as read:", errorText);
+      }
+    } catch (error) {
+      // Don't throw - marking as read is not critical for the flow
+      console.error("❌ Error marking message as read:", error);
     }
   }
 
