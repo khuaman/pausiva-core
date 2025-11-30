@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { getServiceSupabaseClient } from '@/utils/supabase/service';
-import type { ApiPlan, SupabasePlanRow } from './types';
+import type { ApiParaclinic, SupabaseParaclinicRow, ParaclinicType } from './types';
 import {
   getAuthenticatedUser,
   hasFullAccess,
@@ -9,15 +9,15 @@ import {
   isPatient,
 } from '../auth-helpers';
 
-const PLAN_SELECT = `
+const PARACLINIC_SELECT = `
   id,
   appointment_id,
-  start_date,
-  end_date,
-  plan,
-  created_at,
-  updated_at,
-  appointment:appointments!plans_appointment_id_fkey (
+  type,
+  file_format,
+  result_date,
+  file_url,
+  description,
+  appointment:appointments!paraclinics_appointment_id_fkey (
     id,
     type,
     status,
@@ -51,8 +51,8 @@ const PLAN_SELECT = `
   )
 `;
 
-const DEFAULT_LIMIT = 5;
-const MAX_LIMIT = 25;
+const DEFAULT_LIMIT = 10;
+const MAX_LIMIT = 50;
 
 function parseLimit(rawLimit: string | null): number {
   const parsed = rawLimit ? Number(rawLimit) : NaN;
@@ -62,15 +62,15 @@ function parseLimit(rawLimit: string | null): number {
   return Math.min(Math.max(Math.floor(parsed), 1), MAX_LIMIT);
 }
 
-function mapPlan(row: SupabasePlanRow): ApiPlan {
+function mapParaclinic(row: SupabaseParaclinicRow): ApiParaclinic {
   return {
     id: row.id,
     appointmentId: row.appointment_id,
-    startDate: row.start_date,
-    endDate: row.end_date,
-    plan: row.plan,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    type: row.type,
+    fileFormat: row.file_format,
+    resultDate: row.result_date,
+    fileUrl: row.file_url,
+    description: row.description,
     appointment: row.appointment
       ? {
           id: row.appointment.id,
@@ -126,27 +126,22 @@ export async function GET(request: NextRequest) {
 
     // Apply role-based filtering
     if (isPatient(authUser)) {
-      // Patients can only see their own plans
+      // Patients can only see their own paraclinics
       patientId = authUser.id;
-    } else if (isDoctor(authUser)) {
-      // Doctors can only see plans for their patients (filtered through appointments)
-      // We'll need to add doctor filtering
-      // For now, we'll handle this through the appointment relationship
     }
-    // Staff has full access
 
     // Build the select with proper joins
-    let selectQuery = PLAN_SELECT;
+    let selectQuery = PARACLINIC_SELECT;
     
     // Use !inner join when filtering by patientId to enable nested filtering
     if (patientId) {
       selectQuery = selectQuery.replace(
-        'appointment:appointments!plans_appointment_id_fkey',
-        'appointment:appointments!plans_appointment_id_fkey!inner'
+        'appointment:appointments!paraclinics_appointment_id_fkey',
+        'appointment:appointments!paraclinics_appointment_id_fkey!inner'
       );
     }
 
-    let query = supabase.from('plans').select(selectQuery);
+    let query = supabase.from('paraclinics').select(selectQuery);
     
     // Filter by patient_id through the appointment relationship
     if (patientId) {
@@ -156,10 +151,10 @@ export async function GET(request: NextRequest) {
     // If doctor, filter by doctor_id through appointment
     if (isDoctor(authUser) && !patientId) {
       selectQuery = selectQuery.replace(
-        'appointment:appointments!plans_appointment_id_fkey',
-        'appointment:appointments!plans_appointment_id_fkey!inner'
+        'appointment:appointments!paraclinics_appointment_id_fkey',
+        'appointment:appointments!paraclinics_appointment_id_fkey!inner'
       );
-      query = supabase.from('plans').select(selectQuery);
+      query = supabase.from('paraclinics').select(selectQuery);
       query = query.eq('appointment.doctor_id', authUser.id);
     }
     
@@ -169,20 +164,20 @@ export async function GET(request: NextRequest) {
     }
 
     const { data, error } = await query
-      .order('created_at', { ascending: false })
+      .order('result_date', { ascending: false, nullsFirst: false })
       .limit(limit);
 
     if (error) {
       throw error;
     }
 
-    const typedData = (data ?? []) as unknown as SupabasePlanRow[];
-    const mapped = typedData.map(mapPlan);
+    const typedData = (data ?? []) as unknown as SupabaseParaclinicRow[];
+    const mapped = typedData.map(mapParaclinic);
 
     return NextResponse.json({
       data: mapped,
       meta: {
-        entity: 'plan',
+        entity: 'paraclinic',
         count: mapped.length,
         limit,
         filters: {
@@ -192,9 +187,9 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[api/plans] Error fetching plans', error);
+    console.error('[api/paraclinics] Error fetching paraclinics', error);
     return NextResponse.json(
-      { error: 'Unexpected error fetching plans from Supabase.' },
+      { error: 'Unexpected error fetching paraclinics from Supabase.' },
       { status: 500 }
     );
   }
@@ -212,21 +207,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Only doctors and staff can create plans
+    // Only doctors and staff can create paraclinics
     if (!isDoctor(authUser) && !hasFullAccess(authUser)) {
       return NextResponse.json(
-        { error: 'Forbidden. Only doctors and staff can create plans.' },
+        { error: 'Forbidden. Only doctors and staff can create paraclinics.' },
         { status: 403 }
       );
     }
 
     const body = await request.json();
-    const { appointmentId, startDate, endDate, plan } = body;
+    const { appointmentId, type, fileFormat, resultDate, fileUrl, description } = body;
 
     // Validate required fields
-    if (!appointmentId || !plan) {
+    if (!appointmentId || !type || !fileUrl) {
       return NextResponse.json(
-        { error: 'Missing required fields: appointmentId, plan' },
+        { error: 'Missing required fields: appointmentId, type, fileUrl' },
+        { status: 400 }
+      );
+    }
+
+    // Validate type enum
+    const validTypes: ParaclinicType[] = ['image', 'lab', 'procedure'];
+    if (!validTypes.includes(type)) {
+      return NextResponse.json(
+        { error: 'Invalid type. Must be one of: image, lab, procedure' },
         { status: 400 }
       );
     }
@@ -250,42 +254,44 @@ export async function POST(request: NextRequest) {
 
       if (appointment.doctor_id !== authUser.id) {
         return NextResponse.json(
-          { error: 'Forbidden. You can only add plans to your own appointments.' },
+          { error: 'Forbidden. You can only add paraclinics to your own appointments.' },
           { status: 403 }
         );
       }
     }
 
-    // Insert plan
+    // Insert paraclinic
     const { data, error } = await supabase
-      .from('plans')
+      .from('paraclinics')
       .insert({
         appointment_id: appointmentId,
-        start_date: startDate || null,
-        end_date: endDate || null,
-        plan,
+        type,
+        file_format: fileFormat || null,
+        result_date: resultDate || null,
+        file_url: fileUrl,
+        description: description || null,
       })
-      .select(PLAN_SELECT)
+      .select(PARACLINIC_SELECT)
       .single();
 
     if (error) {
       throw error;
     }
 
-    const typedData = data as unknown as SupabasePlanRow;
-    const mapped = mapPlan(typedData);
+    const typedData = data as unknown as SupabaseParaclinicRow;
+    const mapped = mapParaclinic(typedData);
 
     return NextResponse.json({
       data: mapped,
       meta: {
-        entity: 'plan',
+        entity: 'paraclinic',
         action: 'created',
       },
     }, { status: 201 });
   } catch (error) {
-    console.error('[api/plans] Error creating plan', error);
+    console.error('[api/paraclinics] Error creating paraclinic', error);
     return NextResponse.json(
-      { error: 'Unexpected error creating plan.' },
+      { error: 'Unexpected error creating paraclinic.' },
       { status: 500 }
     );
   }
