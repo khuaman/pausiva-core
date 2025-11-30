@@ -1,4 +1,4 @@
-# Resumen del Proyecto Actualizado
+# Resumen del Proyecto Actualizado 
 
 ## Contexto del Problema
 
