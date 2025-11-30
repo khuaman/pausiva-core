@@ -8,13 +8,15 @@ import { Sidebar } from "@/components/layout/Sidebar";
 
 // Role-based access control configuration
 const roleAccess: Record<string, string[]> = {
-  "/dashboard": ["admin"],
-  "/pacientes": ["admin", "doctor"],
-  "/paciente": ["admin", "doctor"], // prefix for dynamic routes
-  "/citas": ["admin", "doctor"],
+  "/dashboard": ["staff"],
+  "/pacientes": ["staff", "doctor"],
+  "/paciente": ["staff", "doctor"], // prefix for dynamic routes
+  "/doctores": ["staff"],
+  "/doctor": ["staff"], // prefix for dynamic routes
+  "/citas": ["staff", "doctor"],
   "/mi-perfil": ["paciente"],
   "/mis-citas": ["paciente"],
-  "/configuracion": ["admin", "doctor", "paciente"], // accessible to all
+  "/configuracion": ["staff", "doctor", "paciente"], // accessible to all
 };
 
 export default function ProtectedLayout({
