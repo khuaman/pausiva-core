@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -39,7 +40,15 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center pausiva-gradient p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
-          <h1 className="text-4xl font-serif text-primary mb-2">Pausiva</h1>
+          <div className="flex justify-center mb-4">
+            <Image 
+              src="/logo.png" 
+              alt="Pausiva" 
+              width={180} 
+              height={60}
+              className="h-12 w-auto"
+            />
+          </div>
           <CardTitle className="text-2xl">Iniciar sesión</CardTitle>
           <CardDescription>
             Ingresa tus credenciales para acceder a tu cuenta

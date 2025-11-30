@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { AdminCreateMenu } from './AdminCreateMenu';
+import Image from 'next/image';
 
 export const Sidebar = () => {
   const { user, logout } = useAuth();
@@ -37,7 +38,13 @@ export const Sidebar = () => {
     <aside className="w-64 bg-card border-r border-border flex flex-col h-screen">
       {/* Logo */}
       <div className="h-16 flex items-center px-6 border-b border-border">
-        <h1 className="text-2xl font-serif text-primary font-bold">Pausiva</h1>
+        <Image 
+          src="/logo.png" 
+          alt="Pausiva" 
+          width={160} 
+          height={60}
+          // className="h-auto w-auto"
+        />
       </div>
 
       {/* Navigation */}

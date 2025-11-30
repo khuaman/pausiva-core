@@ -271,11 +271,10 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
   
-  /* Fields Font System - UX/UI Hierarchy */
-  --font-display: 'Fields Display', sans-serif;
-  --font-sans: 'Fields', sans-serif;
-  /* Map legacy font-serif to new Display font for instant migration */
-  --font-serif: 'Fields Display', sans-serif;
+  /* Gilda Display Font System */
+  --font-display: var(--font-gilda), serif;
+  --font-sans: var(--font-gilda), serif;
+  --font-serif: var(--font-gilda), serif;
   
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;

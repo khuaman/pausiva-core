@@ -8,12 +8,23 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Clock, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import type { AppointmentStatus } from '@/utils/types/appointments';
 
 export default function MisCitas() {
   const { user } = useAuth();
   const { appointments, loading, error } = useAppointments({
     patientId: user?.id,
   });
+
+  const statusLabels: Record<AppointmentStatus, string> = {
+    scheduled: 'Programada',
+    rescheduled: 'Reprogramada',
+    completed: 'Completada',
+    cancelled: 'Cancelada',
+    no_show: 'No Asistió',
+  };
+
+  const getStatusLabel = (status: AppointmentStatus) => statusLabels[status] || status;
 
   if (loading) {
     return (
@@ -152,7 +163,7 @@ export default function MisCitas() {
                         </div>
                       </div>
                       <Badge className="bg-warning text-warning-foreground">
-                        {apt.status === 'scheduled' ? 'programada' : apt.status === 'rescheduled' ? 'reprogramada' : apt.status}
+                        {getStatusLabel(apt.status)}
                       </Badge>
                     </div>
                   </CardContent>
@@ -190,7 +201,7 @@ export default function MisCitas() {
                       </div>
                     </div>
                     <Badge className="bg-success text-success-foreground">
-                      {apt.status === 'completed' ? 'completada' : apt.status}
+                      {getStatusLabel(apt.status)}
                     </Badge>
                   </div>
                 </CardContent>

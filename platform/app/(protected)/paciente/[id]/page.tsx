@@ -5,8 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertDialog,
@@ -284,480 +282,514 @@ export default function PatientDetailPage() {
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Quick Stats */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Estadísticas Rápidas</CardTitle>
-                  <CardDescription>Resumen de la actividad del paciente</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">Total de citas</span>
-                    </div>
-                    <span className="text-2xl font-bold">{appointments.length}</span>
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">Seguimientos</span>
-                    </div>
-                    <span className="text-2xl font-bold">{followings.length}</span>
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Stethoscope className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">Planes activos</span>
-                    </div>
-                    <span className="text-2xl font-bold">{plans.length}</span>
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-destructive" />
-                      <span className="text-sm">Seguimientos urgentes</span>
-                    </div>
-                    <span className="text-2xl font-bold text-destructive">
-                      {followings.filter(f => f.isUrgent).length}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Clinical Summary */}
-              {clinicalProfile && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Resumen Clínico</CardTitle>
-                    <CardDescription>Información médica relevante</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {clinicalProfile.menopause_stage && (
-                      <div>
-                        <div className="text-sm text-muted-foreground mb-1">Etapa de Menopausia</div>
-                        <div className="text-lg font-semibold capitalize">
-                          {clinicalProfile.menopause_stage.replace(/_/g, ' ')}
-                        </div>
+            {/* Quick Stats Table */}
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-border bg-muted/50">
+                <h2 className="text-lg font-semibold">Estadísticas Rápidas</h2>
+                <p className="text-sm text-muted-foreground">Resumen de la actividad del paciente</p>
+              </div>
+              <table className="w-full">
+                <tbody>
+                  <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">Total de citas</span>
                       </div>
-                    )}
-                    {clinicalProfile.symptom_score !== undefined && (
-                      <div>
-                        <div className="text-sm text-muted-foreground mb-2">Puntuación de Síntomas</div>
-                        <div className="flex items-center gap-3">
-                          <div className="flex-1 bg-gray-200 rounded-full h-3">
-                            <div
-                              className={`h-3 rounded-full transition-all ${
-                                clinicalProfile.symptom_score >= 7 ? 'bg-red-500' :
-                                clinicalProfile.symptom_score >= 4 ? 'bg-yellow-500' :
-                                'bg-green-500'
-                              }`}
-                              style={{ width: `${Math.min(clinicalProfile.symptom_score * 10, 100)}%` }}
-                            />
-                          </div>
-                          <span className="text-lg font-bold">{clinicalProfile.symptom_score}/10</span>
-                        </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="text-2xl font-bold">{appointments.length}</span>
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">Seguimientos</span>
                       </div>
-                    )}
-                    {clinicalProfile.risk_factors && clinicalProfile.risk_factors.length > 0 && (
-                      <div>
-                        <div className="text-sm text-muted-foreground mb-2">Factores de Riesgo</div>
-                        <div className="flex flex-wrap gap-2">
-                          {clinicalProfile.risk_factors.map((factor: string) => (
-                            <Badge key={factor} variant="outline" className="capitalize">
-                              {factor.replace(/_/g, ' ')}
-                            </Badge>
-                          ))}
-                        </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="text-2xl font-bold">{followings.length}</span>
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Stethoscope className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">Planes activos</span>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="text-2xl font-bold">{plans.length}</span>
+                    </td>
+                  </tr>
+                  <tr className="hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-destructive" />
+                        <span className="text-sm font-medium">Seguimientos urgentes</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="text-2xl font-bold text-destructive">
+                        {followings.filter(f => f.isUrgent).length}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
-            {/* Recent Activity */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Actividad Reciente</CardTitle>
-                <CardDescription>Últimas interacciones y eventos</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
+            {/* Clinical Summary Table */}
+            {clinicalProfile && (
+              <div className="bg-card border border-border rounded-lg overflow-hidden">
+                <div className="px-6 py-4 border-b border-border bg-muted/50">
+                  <h2 className="text-lg font-semibold">Resumen Clínico</h2>
+                  <p className="text-sm text-muted-foreground">Información médica relevante</p>
+                </div>
+                <table className="w-full">
+                  <tbody>
+                    {clinicalProfile.menopause_stage && (
+                      <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                        <td className="px-6 py-4 font-medium text-sm w-1/3">Etapa de Menopausia</td>
+                        <td className="px-6 py-4 text-lg font-semibold capitalize">
+                          {clinicalProfile.menopause_stage.replace(/_/g, ' ')}
+                        </td>
+                      </tr>
+                    )}
+                    {clinicalProfile.symptom_score !== undefined && (
+                      <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                        <td className="px-6 py-4 font-medium text-sm w-1/3">Puntuación de Síntomas</td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 bg-gray-200 rounded-full h-3 max-w-md">
+                              <div
+                                className={`h-3 rounded-full transition-all ${
+                                  clinicalProfile.symptom_score >= 7 ? 'bg-red-500' :
+                                  clinicalProfile.symptom_score >= 4 ? 'bg-yellow-500' :
+                                  'bg-green-500'
+                                }`}
+                                style={{ width: `${Math.min(clinicalProfile.symptom_score * 10, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-lg font-bold">{clinicalProfile.symptom_score}/10</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    {clinicalProfile.risk_factors && clinicalProfile.risk_factors.length > 0 && (
+                      <tr className="hover:bg-muted/30 transition-colors">
+                        <td className="px-6 py-4 font-medium text-sm w-1/3">Factores de Riesgo</td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap gap-2">
+                            {clinicalProfile.risk_factors.map((factor: string) => (
+                              <Badge key={factor} variant="outline" className="capitalize">
+                                {factor.replace(/_/g, ' ')}
+                              </Badge>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Recent Activity Table */}
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-border bg-muted/50">
+                <h2 className="text-lg font-semibold">Actividad Reciente</h2>
+                <p className="text-sm text-muted-foreground">Últimas interacciones y eventos</p>
+              </div>
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-muted/30">
+                    <th className="px-6 py-3 text-left text-sm font-semibold">Tipo</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold">Fecha</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold">Detalles</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {/* Recent Appointments */}
                   {appointments.slice(0, 3).map((appointment) => (
-                    <div key={appointment.id} className="flex items-start gap-4 pb-4 border-b last:border-0">
-                      <div className="rounded-full bg-primary/10 p-2">
-                        <Calendar className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium">
-                            {getAppointmentTypeLabel(appointment.type)}
-                          </span>
-                          <Badge variant={getAppointmentStatusVariant(appointment.status)} className="text-xs">
-                            {getAppointmentStatusLabel(appointment.status)}
-                          </Badge>
+                    <tr key={appointment.id} className="border-b border-border hover:bg-muted/30 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-primary" />
+                          <span className="font-medium">{getAppointmentTypeLabel(appointment.type)}</span>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {format(new Date(appointment.scheduledAt), "PPP 'a las' p", { locale: es })}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Dr(a). {appointment.doctor.fullName}
-                        </p>
-                      </div>
-                    </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">
+                        {format(new Date(appointment.scheduledAt), "PPP", { locale: es })}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">
+                        Dr(a). {appointment.doctor.fullName}
+                      </td>
+                      <td className="px-6 py-4">
+                        <Badge variant={getAppointmentStatusVariant(appointment.status)} className="text-xs">
+                          {getAppointmentStatusLabel(appointment.status)}
+                        </Badge>
+                      </td>
+                    </tr>
                   ))}
 
                   {/* Recent Followings */}
                   {followings.slice(0, 2).map((following) => (
-                    <div key={following.id} className="flex items-start gap-4 pb-4 border-b last:border-0">
-                      <div className={`rounded-full p-2 ${following.isUrgent ? 'bg-destructive/10' : 'bg-blue-500/10'}`}>
-                        <MessageSquare className={`h-4 w-4 ${following.isUrgent ? 'text-destructive' : 'text-blue-500'}`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium capitalize">
-                            Seguimiento: {following.type.replace(/_/g, ' ')}
-                          </span>
-                          {following.isUrgent && (
-                            <Badge variant="destructive" className="text-xs">Urgente</Badge>
-                          )}
+                    <tr key={following.id} className="border-b border-border hover:bg-muted/30 transition-colors last:border-0">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className={`h-4 w-4 ${following.isUrgent ? 'text-destructive' : 'text-blue-500'}`} />
+                          <span className="font-medium capitalize">Seguimiento</span>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {format(new Date(following.contactedAt), "PPP 'a las' p", { locale: es })}
-                        </p>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">
+                        {format(new Date(following.contactedAt), "PPP", { locale: es })}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">
+                        {following.type.replace(/_/g, ' ')}
                         {following.summary && (
-                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                            {following.summary}
-                          </p>
+                          <span className="block text-xs mt-1 line-clamp-1">{following.summary}</span>
                         )}
-                      </div>
-                    </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {following.isUrgent && (
+                          <Badge variant="destructive" className="text-xs">Urgente</Badge>
+                        )}
+                      </td>
+                    </tr>
                   ))}
-                </div>
-              </CardContent>
-            </Card>
+                </tbody>
+              </table>
+            </div>
           </TabsContent>
 
           {/* Appointments Tab */}
           <TabsContent value="appointments" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Historial de Citas</CardTitle>
-                <CardDescription>
-                  Todas las citas médicas del paciente
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loadingAppointments ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Cargando citas...
-                  </div>
-                ) : appointments.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No hay citas registradas
-                  </div>
-                ) : (
-                  <div className="space-y-4">
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-border bg-muted/50">
+                <h2 className="text-lg font-semibold">Historial de Citas</h2>
+                <p className="text-sm text-muted-foreground">Todas las citas médicas del paciente</p>
+              </div>
+              {loadingAppointments ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  Cargando citas...
+                </div>
+              ) : appointments.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No hay citas registradas
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30">
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Tipo</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Fecha y Hora</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Doctor</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Estado</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {appointments.map((appointment) => (
-                      <div
-                        key={appointment.id}
-                        className="flex flex-col sm:flex-row gap-4 p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors"
-                      >
-                        <div className="flex-shrink-0">
-                          <div className="flex items-center justify-center w-16 h-16 rounded-lg bg-primary/10">
-                            <Calendar className="h-8 w-8 text-primary" />
+                      <tr key={appointment.id} className="border-b border-border hover:bg-muted/30 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-primary" />
+                            <span className="font-medium">{getAppointmentTypeLabel(appointment.type)}</span>
                           </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2 mb-2">
-                            <h3 className="font-semibold text-lg">
-                              {getAppointmentTypeLabel(appointment.type)}
-                            </h3>
-                            <Badge variant={getAppointmentStatusVariant(appointment.status)}>
-                              {getAppointmentStatusLabel(appointment.status)}
-                            </Badge>
-                          </div>
-                          <div className="space-y-1 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-2">
-                              <CalendarDays className="h-4 w-4" />
-                              <span>
-                                {format(new Date(appointment.scheduledAt), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
-                              </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm">
+                            <div className="font-medium">
+                              {format(new Date(appointment.scheduledAt), "EEEE, d 'de' MMMM", { locale: es })}
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-4 w-4" />
-                              <span>
-                                {format(new Date(appointment.scheduledAt), "h:mm a", { locale: es })}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <User className="h-4 w-4" />
-                              <span>Dr(a). {appointment.doctor.fullName}</span>
+                            <div className="text-muted-foreground">
+                              {format(new Date(appointment.scheduledAt), "h:mm a", { locale: es })}
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center">
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">Dr(a). {appointment.doctor.fullName}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge variant={getAppointmentStatusVariant(appointment.status)}>
+                            {getAppointmentStatusLabel(appointment.status)}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4">
                           <Button variant="outline" size="sm">
                             Ver Detalles
                           </Button>
-                        </div>
-                      </div>
+                        </td>
+                      </tr>
                     ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  </tbody>
+                </table>
+              )}
+            </div>
           </TabsContent>
 
           {/* Followings Tab */}
           <TabsContent value="followings" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Seguimientos</CardTitle>
-                <CardDescription>
-                  Historial de seguimientos e interacciones con el paciente
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loadingFollowings ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Cargando seguimientos...
-                  </div>
-                ) : followings.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No hay seguimientos registrados
-                  </div>
-                ) : (
-                  <div className="space-y-4">
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-border bg-muted/50">
+                <h2 className="text-lg font-semibold">Seguimientos</h2>
+                <p className="text-sm text-muted-foreground">Historial de seguimientos e interacciones con el paciente</p>
+              </div>
+              {loadingFollowings ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  Cargando seguimientos...
+                </div>
+              ) : followings.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No hay seguimientos registrados
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30">
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Tipo</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Fecha</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Canal</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Resumen</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Detalles</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {followings.map((following) => (
-                      <div
-                        key={following.id}
-                        className={`flex flex-col gap-4 p-4 border rounded-lg ${
-                          following.isUrgent
-                            ? 'border-destructive bg-destructive/5'
-                            : 'border-border hover:bg-muted/30'
-                        } transition-colors`}
+                      <tr 
+                        key={following.id} 
+                        className={`border-b border-border hover:bg-muted/30 transition-colors ${
+                          following.isUrgent ? 'bg-destructive/5' : ''
+                        }`}
                       >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex items-start gap-3 flex-1 min-w-0">
-                            <div className={`rounded-full p-2 flex-shrink-0 ${
-                              following.isUrgent ? 'bg-destructive/10' : 'bg-blue-500/10'
-                            }`}>
-                              <MessageSquare className={`h-5 w-5 ${
-                                following.isUrgent ? 'text-destructive' : 'text-blue-500'
-                              }`} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-2 mb-1">
-                                <h3 className="font-semibold capitalize">
-                                  {following.type.replace(/_/g, ' ')}
-                                </h3>
-                                {following.isUrgent && (
-                                  <Badge variant="destructive">Urgente</Badge>
-                                )}
-                                <Badge variant="outline" className="capitalize">
-                                  {following.channel}
-                                </Badge>
-                              </div>
-                              <div className="text-sm text-muted-foreground mb-2">
-                                {format(new Date(following.contactedAt), "PPP 'a las' p", { locale: es })}
-                              </div>
-                              {following.summary && (
-                                <p className="text-sm mt-2">{following.summary}</p>
-                              )}
-                              <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                                <span>{following.messageCount} mensajes</span>
-                                {following.severityScore !== null && (
-                                  <span>Severidad: {following.severityScore}/10</span>
-                                )}
-                              </div>
-                            </div>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <MessageSquare className={`h-4 w-4 ${following.isUrgent ? 'text-destructive' : 'text-blue-500'}`} />
+                            <span className="font-medium capitalize">{following.type.replace(/_/g, ' ')}</span>
+                            {following.isUrgent && (
+                              <Badge variant="destructive" className="ml-2">Urgente</Badge>
+                            )}
                           </div>
-                          {following.transcriptUrl && (
+                        </td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">
+                          {format(new Date(following.contactedAt), "PPP", { locale: es })}
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge variant="outline" className="capitalize">
+                            {following.channel}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4">
+                          {following.summary ? (
+                            <p className="text-sm line-clamp-2 max-w-md">{following.summary}</p>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">-</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">
+                          <div>{following.messageCount} mensajes</div>
+                          {following.severityScore !== null && (
+                            <div>Severidad: {following.severityScore}/10</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          {following.transcriptUrl ? (
                             <Button variant="outline" size="sm" asChild>
                               <a href={following.transcriptUrl} target="_blank" rel="noopener noreferrer">
                                 Ver Transcripción
                               </a>
                             </Button>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">-</span>
                           )}
-                        </div>
-                      </div>
+                        </td>
+                      </tr>
                     ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  </tbody>
+                </table>
+              )}
+            </div>
           </TabsContent>
 
           {/* Plans Tab */}
           <TabsContent value="plans" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Planes de Tratamiento</CardTitle>
-                <CardDescription>
-                  Planes médicos y tratamientos asignados al paciente
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loadingPlans ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Cargando planes...
-                  </div>
-                ) : plans.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No hay planes registrados
-                  </div>
-                ) : (
-                  <div className="space-y-4">
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-border bg-muted/50">
+                <h2 className="text-lg font-semibold">Planes de Tratamiento</h2>
+                <p className="text-sm text-muted-foreground">Planes médicos y tratamientos asignados al paciente</p>
+              </div>
+              {loadingPlans ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  Cargando planes...
+                </div>
+              ) : plans.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No hay planes registrados
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30">
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Plan</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Fecha de Inicio</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Fecha de Fin</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Cita Relacionada</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Detalles</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {plans.map((plan) => (
-                      <div
-                        key={plan.id}
-                        className="flex flex-col gap-4 p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="rounded-full p-2 bg-green-500/10 flex-shrink-0">
+                      <tr key={plan.id} className="border-b border-border hover:bg-muted/30 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
                             <Pill className="h-5 w-5 text-green-500" />
+                            <span className="font-medium">Plan de Tratamiento</span>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold mb-2">Plan de Tratamiento</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-muted-foreground mb-3">
-                              {plan.startDate && (
-                                <div className="flex items-center gap-2">
-                                  <CalendarDays className="h-4 w-4" />
-                                  <span>
-                                    Inicio: {format(new Date(plan.startDate), 'PP', { locale: es })}
-                                  </span>
-                                </div>
-                              )}
-                              {plan.endDate && (
-                                <div className="flex items-center gap-2">
-                                  <CalendarDays className="h-4 w-4" />
-                                  <span>
-                                    Fin: {format(new Date(plan.endDate), 'PP', { locale: es })}
-                                  </span>
-                                </div>
-                              )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">
+                          {plan.startDate ? (
+                            <div className="flex items-center gap-2">
+                              <CalendarDays className="h-4 w-4" />
+                              {format(new Date(plan.startDate), 'PP', { locale: es })}
                             </div>
-                            {plan.plan && (
-                              <div className="mt-3 p-3 bg-muted/50 rounded-md">
-                                <pre className="text-sm whitespace-pre-wrap font-mono">
+                          ) : (
+                            '-'
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">
+                          {plan.endDate ? (
+                            <div className="flex items-center gap-2">
+                              <CalendarDays className="h-4 w-4" />
+                              {format(new Date(plan.endDate), 'PP', { locale: es })}
+                            </div>
+                          ) : (
+                            '-'
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">
+                          {plan.appointment ? (
+                            format(new Date(plan.appointment.scheduledAt!), 'PP', { locale: es })
+                          ) : (
+                            '-'
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          {plan.plan && (
+                            <details className="cursor-pointer">
+                              <summary className="text-sm text-primary hover:underline">Ver plan completo</summary>
+                              <div className="mt-2 p-3 bg-muted/50 rounded-md max-w-md">
+                                <pre className="text-xs whitespace-pre-wrap font-mono overflow-auto">
                                   {JSON.stringify(plan.plan, null, 2)}
                                 </pre>
                               </div>
-                            )}
-                            {plan.appointment && (
-                              <div className="mt-3 text-sm text-muted-foreground">
-                                Relacionado con cita del{' '}
-                                {format(new Date(plan.appointment.scheduledAt!), 'PP', { locale: es })}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                            </details>
+                          )}
+                        </td>
+                      </tr>
                     ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  </tbody>
+                </table>
+              )}
+            </div>
           </TabsContent>
 
           {/* Clinical Profile Tab */}
           <TabsContent value="clinical" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Perfil Clínico Completo</CardTitle>
-                <CardDescription>
-                  Información médica detallada del paciente
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {clinicalProfile ? (
-                  <div className="space-y-6">
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-border bg-muted/50">
+                <h2 className="text-lg font-semibold">Perfil Clínico Completo</h2>
+                <p className="text-sm text-muted-foreground">Información médica detallada del paciente</p>
+              </div>
+              {clinicalProfile ? (
+                <table className="w-full">
+                  <tbody>
                     {/* Menopause Stage */}
                     {clinicalProfile.menopause_stage && (
-                      <div>
-                        <h3 className="text-sm font-semibold text-muted-foreground mb-2">
+                      <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                        <td className="px-6 py-4 font-semibold text-sm text-muted-foreground w-1/3">
                           ETAPA DE MENOPAUSIA
-                        </h3>
-                        <p className="text-lg font-medium capitalize">
+                        </td>
+                        <td className="px-6 py-4 text-lg font-medium capitalize">
                           {clinicalProfile.menopause_stage.replace(/_/g, ' ')}
-                        </p>
-                      </div>
+                        </td>
+                      </tr>
                     )}
-
-                    <Separator />
 
                     {/* Symptom Score */}
                     {clinicalProfile.symptom_score !== undefined && (
-                      <div>
-                        <h3 className="text-sm font-semibold text-muted-foreground mb-3">
+                      <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                        <td className="px-6 py-4 font-semibold text-sm text-muted-foreground w-1/3">
                           PUNTUACIÓN DE SÍNTOMAS
-                        </h3>
-                        <div className="flex items-center gap-4">
-                          <div className="flex-1 bg-gray-200 rounded-full h-4">
-                            <div
-                              className={`h-4 rounded-full transition-all ${
-                                clinicalProfile.symptom_score >= 7 ? 'bg-red-500' :
-                                clinicalProfile.symptom_score >= 4 ? 'bg-yellow-500' :
-                                'bg-green-500'
-                              }`}
-                              style={{ width: `${Math.min(clinicalProfile.symptom_score * 10, 100)}%` }}
-                            />
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-4">
+                            <div className="flex-1 bg-gray-200 rounded-full h-4 max-w-md">
+                              <div
+                                className={`h-4 rounded-full transition-all ${
+                                  clinicalProfile.symptom_score >= 7 ? 'bg-red-500' :
+                                  clinicalProfile.symptom_score >= 4 ? 'bg-yellow-500' :
+                                  'bg-green-500'
+                                }`}
+                                style={{ width: `${Math.min(clinicalProfile.symptom_score * 10, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-2xl font-bold">{clinicalProfile.symptom_score}/10</span>
                           </div>
-                          <span className="text-2xl font-bold">{clinicalProfile.symptom_score}/10</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          {clinicalProfile.symptom_score >= 7 && 'Síntomas severos - Requiere atención prioritaria'}
-                          {clinicalProfile.symptom_score >= 4 && clinicalProfile.symptom_score < 7 && 'Síntomas moderados'}
-                          {clinicalProfile.symptom_score < 4 && 'Síntomas leves'}
-                        </p>
-                      </div>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            {clinicalProfile.symptom_score >= 7 && 'Síntomas severos - Requiere atención prioritaria'}
+                            {clinicalProfile.symptom_score >= 4 && clinicalProfile.symptom_score < 7 && 'Síntomas moderados'}
+                            {clinicalProfile.symptom_score < 4 && 'Síntomas leves'}
+                          </p>
+                        </td>
+                      </tr>
                     )}
-
-                    <Separator />
 
                     {/* Risk Factors */}
                     {clinicalProfile.risk_factors && clinicalProfile.risk_factors.length > 0 && (
-                      <div>
-                        <h3 className="text-sm font-semibold text-muted-foreground mb-3">
+                      <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                        <td className="px-6 py-4 font-semibold text-sm text-muted-foreground w-1/3">
                           FACTORES DE RIESGO
-                        </h3>
-                        <div className="flex flex-wrap gap-2">
-                          {clinicalProfile.risk_factors.map((factor: string) => (
-                            <Badge key={factor} variant="outline" className="capitalize text-sm py-1">
-                              {factor.replace(/_/g, ' ')}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap gap-2">
+                            {clinicalProfile.risk_factors.map((factor: string) => (
+                              <Badge key={factor} variant="outline" className="capitalize text-sm py-1">
+                                {factor.replace(/_/g, ' ')}
+                              </Badge>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
                     )}
 
-                    <Separator />
-
                     {/* Full Clinical Profile JSON */}
-                    <div>
-                      <h3 className="text-sm font-semibold text-muted-foreground mb-3">
+                    <tr className="hover:bg-muted/30 transition-colors">
+                      <td className="px-6 py-4 font-semibold text-sm text-muted-foreground w-1/3">
                         PERFIL COMPLETO (JSON)
-                      </h3>
-                      <div className="p-4 bg-muted/50 rounded-md overflow-auto">
-                        <pre className="text-xs font-mono">
-                          {JSON.stringify(clinicalProfile, null, 2)}
-                        </pre>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No hay información clínica disponible
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="p-4 bg-muted/50 rounded-md overflow-auto">
+                          <pre className="text-xs font-mono">
+                            {JSON.stringify(clinicalProfile, null, 2)}
+                          </pre>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  No hay información clínica disponible
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </main>

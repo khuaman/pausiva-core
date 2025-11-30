@@ -5,8 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertDialog,
@@ -325,228 +323,243 @@ export default function DoctorDetailPage() {
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Quick Stats */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Estadísticas Generales</CardTitle>
-                  <CardDescription>Resumen de la actividad del doctor</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">Total de citas</span>
-                    </div>
-                    <span className="text-2xl font-bold">{appointmentStats.total}</span>
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      <span className="text-sm">Citas completadas</span>
-                    </div>
-                    <span className="text-2xl font-bold text-green-500">{appointmentStats.completed}</span>
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-blue-500" />
-                      <span className="text-sm">Citas programadas</span>
-                    </div>
-                    <span className="text-2xl font-bold text-blue-500">{appointmentStats.scheduled}</span>
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">Pacientes únicos</span>
-                    </div>
-                    <span className="text-2xl font-bold">{uniquePatients.length}</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Professional Info */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Información Profesional</CardTitle>
-                  <CardDescription>Datos del doctor</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <div className="text-sm text-muted-foreground mb-1">Especialidad</div>
-                    <div className="text-lg font-semibold flex items-center gap-2">
-                      <Stethoscope className="h-5 w-5 text-primary" />
-                      {doctor.metadata.specialty}
-                    </div>
-                  </div>
-                  <Separator />
-                  <div>
-                    <div className="text-sm text-muted-foreground mb-1">Colegio Médico del Perú</div>
-                    <div className="text-lg font-semibold flex items-center gap-2">
-                      <IdCard className="h-5 w-5 text-primary" />
-                      {doctor.metadata.cmp}
-                    </div>
-                  </div>
-                  {doctor.metadata.dni && (
-                    <>
-                      <Separator />
-                      <div>
-                        <div className="text-sm text-muted-foreground mb-1">DNI</div>
-                        <div className="text-lg font-semibold">{doctor.metadata.dni}</div>
+            {/* Quick Stats Table */}
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-border bg-muted/50">
+                <h2 className="text-lg font-semibold">Estadísticas Generales</h2>
+                <p className="text-sm text-muted-foreground">Resumen de la actividad del doctor</p>
+              </div>
+              <table className="w-full">
+                <tbody>
+                  <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">Total de citas</span>
                       </div>
-                    </>
-                  )}
-                  <Separator />
-                  <div>
-                    <div className="text-sm text-muted-foreground mb-1">Miembro desde</div>
-                    <div className="text-lg font-semibold">
-                      {format(new Date(doctor.profile.createdAt), 'PP', { locale: es })}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="text-2xl font-bold">{appointmentStats.total}</span>
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        <span className="text-sm font-medium">Citas completadas</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="text-2xl font-bold text-green-500">{appointmentStats.completed}</span>
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-blue-500" />
+                        <span className="text-sm font-medium">Citas programadas</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="text-2xl font-bold text-blue-500">{appointmentStats.scheduled}</span>
+                    </td>
+                  </tr>
+                  <tr className="hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">Pacientes únicos</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="text-2xl font-bold">{uniquePatients.length}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
-            {/* Recent Appointments */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Citas Recientes</CardTitle>
-                <CardDescription>Últimas citas atendidas</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {appointments.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No hay citas registradas
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {appointments.slice(0, 5).map((appointment) => (
-                      <div key={appointment.id} className="flex items-start gap-4 pb-4 border-b last:border-0">
-                        <div className="rounded-full bg-primary/10 p-2">
-                          <Calendar className="h-4 w-4 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium">
-                              {getAppointmentTypeLabel(appointment.type)}
-                            </span>
-                            <Badge variant={getAppointmentStatusVariant(appointment.status)} className="text-xs">
-                              {getAppointmentStatusLabel(appointment.status)}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {format(new Date(appointment.scheduledAt), "PPP 'a las' p", { locale: es })}
-                          </p>
-                          {appointment.patient && (
-                            <p className="text-sm text-muted-foreground">
-                              Paciente: {appointment.patient.fullName}
-                            </p>
-                          )}
-                        </div>
+            {/* Professional Info Table */}
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-border bg-muted/50">
+                <h2 className="text-lg font-semibold">Información Profesional</h2>
+                <p className="text-sm text-muted-foreground">Datos del doctor</p>
+              </div>
+              <table className="w-full">
+                <tbody>
+                  <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4 font-medium text-sm w-1/3">Especialidad</td>
+                    <td className="px-6 py-4 text-lg font-semibold">
+                      <div className="flex items-center gap-2">
+                        <Stethoscope className="h-5 w-5 text-primary" />
+                        {doctor.metadata.specialty}
                       </div>
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4 font-medium text-sm w-1/3">Colegio Médico del Perú</td>
+                    <td className="px-6 py-4 text-lg font-semibold">
+                      <div className="flex items-center gap-2">
+                        <IdCard className="h-5 w-5 text-primary" />
+                        {doctor.metadata.cmp}
+                      </div>
+                    </td>
+                  </tr>
+                  {doctor.metadata.dni && (
+                    <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                      <td className="px-6 py-4 font-medium text-sm w-1/3">DNI</td>
+                      <td className="px-6 py-4 text-lg font-semibold">{doctor.metadata.dni}</td>
+                    </tr>
+                  )}
+                  <tr className="hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4 font-medium text-sm w-1/3">Miembro desde</td>
+                    <td className="px-6 py-4 text-lg font-semibold">
+                      {format(new Date(doctor.profile.createdAt), 'PP', { locale: es })}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Recent Appointments Table */}
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-border bg-muted/50">
+                <h2 className="text-lg font-semibold">Citas Recientes</h2>
+                <p className="text-sm text-muted-foreground">Últimas citas atendidas</p>
+              </div>
+              {appointments.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No hay citas registradas
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30">
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Tipo</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Fecha</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Paciente</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {appointments.slice(0, 5).map((appointment) => (
+                      <tr key={appointment.id} className="border-b border-border hover:bg-muted/30 transition-colors last:border-0">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-primary" />
+                            <span className="font-medium">{getAppointmentTypeLabel(appointment.type)}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">
+                          {format(new Date(appointment.scheduledAt), "PPP", { locale: es })}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">
+                          {appointment.patient?.fullName || '-'}
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge variant={getAppointmentStatusVariant(appointment.status)} className="text-xs">
+                            {getAppointmentStatusLabel(appointment.status)}
+                          </Badge>
+                        </td>
+                      </tr>
                     ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  </tbody>
+                </table>
+              )}
+            </div>
           </TabsContent>
 
           {/* Appointments Tab */}
           <TabsContent value="appointments" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Historial de Citas</CardTitle>
-                <CardDescription>
-                  Todas las citas del doctor
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loadingAppointments ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Cargando citas...
-                  </div>
-                ) : appointments.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No hay citas registradas
-                  </div>
-                ) : (
-                  <div className="space-y-4">
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-border bg-muted/50">
+                <h2 className="text-lg font-semibold">Historial de Citas</h2>
+                <p className="text-sm text-muted-foreground">Todas las citas del doctor</p>
+              </div>
+              {loadingAppointments ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  Cargando citas...
+                </div>
+              ) : appointments.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No hay citas registradas
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30">
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Tipo</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Fecha y Hora</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Paciente</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Estado</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {appointments.map((appointment) => (
-                      <div
-                        key={appointment.id}
-                        className="flex flex-col sm:flex-row gap-4 p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors"
-                      >
-                        <div className="flex-shrink-0">
-                          <div className="flex items-center justify-center w-16 h-16 rounded-lg bg-primary/10">
-                            <Calendar className="h-8 w-8 text-primary" />
+                      <tr key={appointment.id} className="border-b border-border hover:bg-muted/30 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-primary" />
+                            <span className="font-medium">{getAppointmentTypeLabel(appointment.type)}</span>
                           </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2 mb-2">
-                            <h3 className="font-semibold text-lg">
-                              {getAppointmentTypeLabel(appointment.type)}
-                            </h3>
-                            <Badge variant={getAppointmentStatusVariant(appointment.status)}>
-                              {getAppointmentStatusLabel(appointment.status)}
-                            </Badge>
-                          </div>
-                          <div className="space-y-1 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-2">
-                              <CalendarDays className="h-4 w-4" />
-                              <span>
-                                {format(new Date(appointment.scheduledAt), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
-                              </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm">
+                            <div className="font-medium">
+                              {format(new Date(appointment.scheduledAt), "EEEE, d 'de' MMMM", { locale: es })}
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-4 w-4" />
-                              <span>
-                                {format(new Date(appointment.scheduledAt), "h:mm a", { locale: es })}
-                              </span>
+                            <div className="text-muted-foreground">
+                              {format(new Date(appointment.scheduledAt), "h:mm a", { locale: es })}
                             </div>
-                            {appointment.patient && (
-                              <div className="flex items-center gap-2">
-                                <User className="h-4 w-4" />
-                                <span>Paciente: {appointment.patient.fullName}</span>
-                              </div>
-                            )}
                           </div>
-                          {/* {appointment.notes && (
-                            <p className="text-sm text-muted-foreground mt-2">
-                              {appointment.notes}
-                            </p>
-                          )} */}
-                        </div>
-                        <div className="flex items-center">
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">{appointment.patient?.fullName || '-'}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge variant={getAppointmentStatusVariant(appointment.status)}>
+                            {getAppointmentStatusLabel(appointment.status)}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4">
                           <Button variant="outline" size="sm">
                             Ver Detalles
                           </Button>
-                        </div>
-                      </div>
+                        </td>
+                      </tr>
                     ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  </tbody>
+                </table>
+              )}
+            </div>
           </TabsContent>
 
           {/* Patients Tab */}
           <TabsContent value="patients" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Pacientes Atendidos</CardTitle>
-                <CardDescription>
-                  Lista de pacientes únicos atendidos por el doctor
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {uniquePatients.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No hay pacientes registrados
-                  </div>
-                ) : (
-                  <div className="space-y-3">
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-border bg-muted/50">
+                <h2 className="text-lg font-semibold">Pacientes Atendidos</h2>
+                <p className="text-sm text-muted-foreground">Lista de pacientes únicos atendidos por el doctor</p>
+              </div>
+              {uniquePatients.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No hay pacientes registrados
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30">
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Paciente</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Email</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Total de Citas</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {uniquePatients.map((patient: any) => {
                       // Count appointments for this patient
                       const patientAppointments = appointments.filter(
@@ -554,137 +567,183 @@ export default function DoctorDetailPage() {
                       );
                       
                       return (
-                        <div
-                          key={patient.id}
-                          className="flex items-center gap-4 p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors"
-                        >
-                          <Avatar className="h-12 w-12">
-                            <AvatarImage src={patient.pictureUrl || undefined} alt={patient.fullName} />
-                            <AvatarFallback>{patient.fullName[0]}</AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-semibold">{patient.fullName}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {patient.email}
+                        <tr key={patient.id} className="border-b border-border hover:bg-muted/30 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-10 w-10">
+                                <AvatarImage src={patient.pictureUrl || undefined} alt={patient.fullName} />
+                                <AvatarFallback className="bg-primary text-primary-foreground">
+                                  {patient.fullName[0]}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="font-medium">{patient.fullName}</span>
                             </div>
-                          </div>
-                          <div className="text-sm text-muted-foreground">
+                          </td>
+                          <td className="px-6 py-4 text-sm text-muted-foreground">
+                            {patient.email}
+                          </td>
+                          <td className="px-6 py-4">
                             <Badge variant="outline">
                               {patientAppointments.length} cita{patientAppointments.length !== 1 ? 's' : ''}
                             </Badge>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => router.push(`/paciente/${patient.id}`)}
-                          >
-                            Ver Perfil
-                          </Button>
-                        </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => router.push(`/paciente/${patient.id}`)}
+                            >
+                              Ver Perfil
+                            </Button>
+                          </td>
+                        </tr>
                       );
                     })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  </tbody>
+                </table>
+              )}
+            </div>
           </TabsContent>
 
           {/* Statistics Tab */}
           <TabsContent value="statistics" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Por Estado</CardTitle>
-                  <CardDescription>Distribución de citas por estado</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      <span className="text-sm">Completadas</span>
-                    </div>
-                    <span className="font-bold">{appointmentStats.completed}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-blue-500" />
-                      <span className="text-sm">Programadas</span>
-                    </div>
-                    <span className="font-bold">{appointmentStats.scheduled}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <XCircle className="h-4 w-4 text-red-500" />
-                      <span className="text-sm">Canceladas</span>
-                    </div>
-                    <span className="font-bold">{appointmentStats.cancelled}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-orange-500" />
-                      <span className="text-sm">No asistió</span>
-                    </div>
-                    <span className="font-bold">{appointmentStats.noShow}</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Por Tipo</CardTitle>
-                  <CardDescription>Distribución de citas por tipo</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-primary" />
-                      <span className="text-sm">Pre-consultas</span>
-                    </div>
-                    <span className="font-bold">{appointmentStats.preConsulta}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Stethoscope className="h-4 w-4 text-primary" />
-                      <span className="text-sm">Consultas</span>
-                    </div>
-                    <span className="font-bold">{appointmentStats.consulta}</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Totales</CardTitle>
-                  <CardDescription>Resumen general</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">Total citas</span>
-                    </div>
-                    <span className="font-bold">{appointmentStats.total}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">Pacientes únicos</span>
-                    </div>
-                    <span className="font-bold">{uniquePatients.length}</span>
-                  </div>
-                  {appointmentStats.total > 0 && (
-                    <div className="flex items-center justify-between">
+            {/* By Status Table */}
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-border bg-muted/50">
+                <h2 className="text-lg font-semibold">Por Estado</h2>
+                <p className="text-sm text-muted-foreground">Distribución de citas por estado</p>
+              </div>
+              <table className="w-full">
+                <tbody>
+                  <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">Tasa completadas</span>
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        <span className="text-sm font-medium">Completadas</span>
                       </div>
-                      <span className="font-bold">
-                        {Math.round((appointmentStats.completed / appointmentStats.total) * 100)}%
-                      </span>
-                    </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="font-bold text-lg">{appointmentStats.completed}</span>
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-blue-500" />
+                        <span className="text-sm font-medium">Programadas</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="font-bold text-lg">{appointmentStats.scheduled}</span>
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <XCircle className="h-4 w-4 text-red-500" />
+                        <span className="text-sm font-medium">Canceladas</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="font-bold text-lg">{appointmentStats.cancelled}</span>
+                    </td>
+                  </tr>
+                  <tr className="hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-orange-500" />
+                        <span className="text-sm font-medium">No asistió</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="font-bold text-lg">{appointmentStats.noShow}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* By Type Table */}
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-border bg-muted/50">
+                <h2 className="text-lg font-semibold">Por Tipo</h2>
+                <p className="text-sm text-muted-foreground">Distribución de citas por tipo</p>
+              </div>
+              <table className="w-full">
+                <tbody>
+                  <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium">Pre-consultas</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="font-bold text-lg">{appointmentStats.preConsulta}</span>
+                    </td>
+                  </tr>
+                  <tr className="hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Stethoscope className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium">Consultas</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="font-bold text-lg">{appointmentStats.consulta}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Totals Table */}
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-border bg-muted/50">
+                <h2 className="text-lg font-semibold">Totales</h2>
+                <p className="text-sm text-muted-foreground">Resumen general</p>
+              </div>
+              <table className="w-full">
+                <tbody>
+                  <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">Total citas</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="font-bold text-lg">{appointmentStats.total}</span>
+                    </td>
+                  </tr>
+                  <tr className={`${appointmentStats.total > 0 ? 'border-b border-border' : ''} hover:bg-muted/30 transition-colors`}>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">Pacientes únicos</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="font-bold text-lg">{uniquePatients.length}</span>
+                    </td>
+                  </tr>
+                  {appointmentStats.total > 0 && (
+                    <tr className="hover:bg-muted/30 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Activity className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">Tasa completadas</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="font-bold text-lg">
+                          {Math.round((appointmentStats.completed / appointmentStats.total) * 100)}%
+                        </span>
+                      </td>
+                    </tr>
                   )}
-                </CardContent>
-              </Card>
+                </tbody>
+              </table>
             </div>
           </TabsContent>
         </Tabs>

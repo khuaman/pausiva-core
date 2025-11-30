@@ -7,6 +7,7 @@ interface UsePatientsOptions {
   limit?: number;
   id?: string;
   autoFetch?: boolean;
+  includeStats?: boolean;
 }
 
 interface UsePatientsReturn {
@@ -17,7 +18,7 @@ interface UsePatientsReturn {
 }
 
 export function usePatients(options: UsePatientsOptions = {}): UsePatientsReturn {
-  const { limit, id, autoFetch = true } = options;
+  const { limit, id, autoFetch = true, includeStats = false } = options;
   const [patients, setPatients] = useState<ApiPatient[]>([]);
   const [loading, setLoading] = useState(autoFetch);
   const [error, setError] = useState<Error | null>(null);
@@ -30,6 +31,7 @@ export function usePatients(options: UsePatientsOptions = {}): UsePatientsReturn
       const params = new URLSearchParams();
       if (limit) params.append('limit', limit.toString());
       if (id) params.append('id', id);
+      if (includeStats) params.append('includeStats', 'true');
 
       const response = await fetch(`/api/users/patients?${params.toString()}`);
       
@@ -51,7 +53,7 @@ export function usePatients(options: UsePatientsOptions = {}): UsePatientsReturn
     if (autoFetch) {
       fetchPatients();
     }
-  }, [limit, id, autoFetch]);
+  }, [limit, id, autoFetch, includeStats]);
 
   return {
     patients,
