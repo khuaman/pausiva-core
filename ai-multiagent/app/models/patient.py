@@ -1,9 +1,12 @@
 """Patient models."""
+
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import ClassVar, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from .base import TableModel
 
 
 class RiskLevel(str, Enum):
@@ -15,8 +18,10 @@ class RiskLevel(str, Enum):
     HIGH = "high"
 
 
-class PatientProfile(BaseModel):
+class PatientProfile(TableModel):
     """Medical and personal profile of a patient."""
+
+    __tablename__: ClassVar[str] = "patient_profiles"
 
     age: Optional[int] = None
     medical_conditions: list[str] = Field(default_factory=list)
@@ -25,8 +30,10 @@ class PatientProfile(BaseModel):
     notes: str = ""
 
 
-class Patient(BaseModel):
+class Patient(TableModel):
     """Patient model identified by phone number."""
+
+    __tablename__: ClassVar[str] = "patients"
 
     phone_number: str
     name: Optional[str] = None
@@ -46,4 +53,3 @@ class Patient(BaseModel):
         if self.profile.allergies:
             parts.append(f"Alergias: {', '.join(self.profile.allergies)}")
         return "; ".join(parts) if parts else "Sin información de perfil"
-

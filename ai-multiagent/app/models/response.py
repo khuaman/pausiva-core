@@ -1,13 +1,23 @@
 """Agent response models."""
+
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .patient import RiskLevel
 
 
 class AgentResponse(BaseModel):
-    """Structured response from the agent system."""
+    """
+    Structured response from the agent system.
+
+    Note: This is NOT a database model, just a response schema.
+    It uses BaseModel directly instead of TableModel.
+    """
+
+    model_config = ConfigDict(
+        use_enum_values=True,
+    )
 
     reply_text: str
     actions: list[str] = Field(default_factory=lambda: ["SEND_MESSAGE"])
@@ -31,4 +41,3 @@ class AgentResponse(BaseModel):
             risk_level=RiskLevel.NONE,
             risk_score=0,
         )
-

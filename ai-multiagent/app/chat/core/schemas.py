@@ -60,14 +60,17 @@ class PatientContextData(BaseModel):
 
 
 class InputState(BaseModel):
-    """Input state for the graph."""
+    """Input state for the graph.
+    
+    Note: phone_number is used as the thread_id for conversation memory.
+    When using LangGraph Studio, you must provide it in the input.
+    """
 
     messages: Messages
-    phone_number: str
+    phone_number: str  # Used as thread_id for checkpointing
     category: MessageCategory = MessageCategory.GENERAL
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = {"arbitrary_types_allowed": True}
 
 
 class OutputState(BaseModel):
@@ -82,8 +85,7 @@ class OutputState(BaseModel):
     appointments: list[dict] = Field(default_factory=list)
     follow_up_questions: list[str] = Field(default_factory=list)
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = {"arbitrary_types_allowed": True}
 
 
 class OverallState(InputState, OutputState):
@@ -92,8 +94,7 @@ class OverallState(InputState, OutputState):
     conversation_state: ConversationState = Field(default_factory=ConversationState)
     patient_context: Optional[PatientContextData] = None
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = {"arbitrary_types_allowed": True}
 
 
 class ChatContext(BaseModel):
@@ -103,6 +104,5 @@ class ChatContext(BaseModel):
     patient_context: Optional[PatientContextData] = None
     conversation_state: ConversationState = Field(default_factory=ConversationState)
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = {"arbitrary_types_allowed": True}
 

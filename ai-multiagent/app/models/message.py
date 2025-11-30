@@ -1,9 +1,12 @@
 """Message models."""
+
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import ClassVar, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from .base import TableModel
 
 
 class MessageType(str, Enum):
@@ -14,8 +17,10 @@ class MessageType(str, Enum):
     SYSTEM = "system"
 
 
-class Message(BaseModel):
+class Message(TableModel):
     """Message model for conversations."""
+
+    __tablename__: ClassVar[str] = "messages"
 
     content: str
     message_type: MessageType
@@ -36,4 +41,3 @@ class Message(BaseModel):
             return ("ai", self.content)
         else:
             return ("system", self.content)
-

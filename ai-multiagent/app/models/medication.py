@@ -1,12 +1,17 @@
 """Medication models."""
+
 from datetime import date, datetime
-from typing import Optional
+from typing import ClassVar, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from .base import TableModel
 
 
-class Medication(BaseModel):
+class Medication(TableModel):
     """Individual medication model."""
+
+    __tablename__: ClassVar[str] = "medications"
 
     name: str
     raw_text: str = ""  # Original prescription text
@@ -18,8 +23,10 @@ class Medication(BaseModel):
     is_active: bool = True
 
 
-class MedicationSchedule(BaseModel):
+class MedicationSchedule(TableModel):
     """Complete medication schedule for a patient."""
+
+    __tablename__: ClassVar[str] = "medication_schedules"
 
     phone_number: str
     medications: list[Medication] = Field(default_factory=list)
@@ -34,4 +41,3 @@ class MedicationSchedule(BaseModel):
         """Add a medication to the schedule."""
         self.medications.append(medication)
         self.updated_at = datetime.now()
-
