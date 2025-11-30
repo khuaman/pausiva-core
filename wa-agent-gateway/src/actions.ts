@@ -1,5 +1,12 @@
 import { whatsappClient } from "./lib/whatsapp";
-import { isFastAPIConfigured, sendMessage, sendCheckin, type FastAPIMessageResponse } from "./lib/fastapi";
+import { 
+  isFastAPIConfigured, 
+  sendMessage, 
+  sendMessageV2,
+  sendCheckin, 
+  type FastAPIMessageResponse,
+  type FastAPIMessageResponseV2 
+} from "./lib/fastapi";
 import {
   getOrCreateConversation,
   getUserByPhone,
@@ -12,7 +19,8 @@ import {
 type ActionType = "chat" | "process_data" | "query_data";
 
 /**
- * Start a new conversation thread
+ * Start a new conversation thread using V2 single agent
+ * This handles the onboarding flow for new patients
  */
 export async function startThread(chatId: string): Promise<string> {
   if (!isFastAPIConfigured()) {
@@ -33,11 +41,13 @@ export async function startThread(chatId: string): Promise<string> {
     console.log(`🔄 Reusing conversation: ${threadId} for ${chatId}`);
   }
 
-  // Call FastAPI checkin endpoint
-  const response = await sendCheckin({
+  // Use V2 endpoint with is_new_conversation flag for natural greeting
+  const response = await sendMessageV2({
     thread_id: threadId,
     phone: chatId,
+    message: "hola", // Natural greeting to trigger welcome message
     user_id: userId,
+    is_new_conversation: true,
   });
 
   // Save the assistant's welcome message
@@ -52,14 +62,14 @@ export async function startThread(chatId: string): Promise<string> {
     riskScore: response.risk_score,
   });
 
-  // Send welcome message with buttons
-  await sendWelcomeMessage(chatId, response);
+  // Send welcome message (without buttons for V2 - let the agent guide naturally)
+  await sendWelcomeMessageV2(chatId, response);
   
   return threadId;
 }
 
 /**
- * Send welcome message with action buttons
+ * Send welcome message with action buttons (V1 legacy)
  * Uses AI-generated text with optional dynamic buttons from response
  */
 async function sendWelcomeMessage(chatId: string, response: FastAPIMessageResponse): Promise<void> {
@@ -84,7 +94,25 @@ async function sendWelcomeMessage(chatId: string, response: FastAPIMessageRespon
 }
 
 /**
- * Stream a conversation turn through the FastAPI multi-agent system
+ * Send welcome message for V2 (single agent with natural conversation)
+ * No buttons by default - let the agent guide the conversation naturally
+ */
+async function sendWelcomeMessageV2(chatId: string, response: FastAPIMessageResponseV2): Promise<void> {
+  // Send the AI-generated welcome message as plain text
+  // The agent will ask for the patient's name naturally
+  await whatsappClient.sendTextMessage(chatId, response.reply_text);
+
+  // Log onboarding state if present
+  if (response.is_new_patient) {
+    console.log(`👋 New patient onboarding started for ${chatId}`);
+    if (response.onboarding_state) {
+      console.log(`📝 Onboarding state: ${response.onboarding_state}`);
+    }
+  }
+}
+
+/**
+ * Stream a conversation turn through the FastAPI V2 single agent system
  */
 export async function runAndStream({
   chatId,
@@ -111,12 +139,13 @@ export async function runAndStream({
     await saveMessage(conversation.id, userInput, "user");
   }
 
-  // Send to FastAPI
-  const response = await sendMessage({
+  // Send to FastAPI V2 (single agent with tools)
+  const response = await sendMessageV2({
     thread_id: threadId,
     phone: chatId,
     message: userInput,
     user_id: userId,
+    is_new_conversation: false,
   });
 
   // Save assistant response
@@ -137,14 +166,14 @@ export async function runAndStream({
 }
 
 /**
- * Handle response from FastAPI endpoint
+ * Handle response from FastAPI endpoint (works with both V1 and V2)
  */
 async function handleFastAPIResponse({
   chatId,
   response,
 }: {
   chatId: string;
-  response: FastAPIMessageResponse;
+  response: FastAPIMessageResponse | FastAPIMessageResponseV2;
 }): Promise<void> {
   // Send the main reply
   if (response.reply_text) {

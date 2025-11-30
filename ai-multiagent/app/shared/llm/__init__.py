@@ -1,5 +1,20 @@
 """LLM integration module."""
-from .clients import get_chat_model, get_model
 
-__all__ = ["get_model", "get_chat_model"]
+from .clients import (
+    AllowedModel,
+    LLMModelConfiguration,
+    get_chat_model,
+    get_chat_model_with_fallbacks,
+    get_model,
+    get_model_with_fallbacks,
+)
+
+__all__ = [
+    "AllowedModel",
+    "LLMModelConfiguration",
+    "get_chat_model",
+    "get_chat_model_with_fallbacks",
+    "get_model",
+    "get_model_with_fallbacks",
+]
 

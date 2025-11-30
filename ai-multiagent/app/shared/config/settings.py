@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # Google AI (Gemini)
     GOOGLE_API_KEY: str = Field(default="", description="Google AI API Key for Gemini")
 
+    # OpenAI
+    OPENAI_API_KEY: str = Field(default="", description="OpenAI API Key")
+
     # LangSmith Tracing (https://smith.langchain.com)
     # Set LANGCHAIN_TRACING_V2=true to enable tracing
     LANGCHAIN_TRACING_V2: bool = Field(
