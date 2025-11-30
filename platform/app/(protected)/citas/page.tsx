@@ -172,94 +172,119 @@ export default function Citas() {
     }
   };
 
-  const renderAppointmentCard = (apt: ApiAppointmentSummary) => {
-    const appointmentDate = new Date(apt.scheduledAt);
-    const formattedDate = format(appointmentDate, "d 'de' MMMM", { locale: es });
-    const formattedTime = format(appointmentDate, 'HH:mm');
-    const initials = apt.patient.fullName
-      .split(' ')
-      .map((name) => (name ? name[0] : ''))
-      .join('')
-      .slice(0, 2)
-      .toUpperCase();
-    const isLoadingDetail = detailLoading && selectedAppointmentId === apt.id;
+  const renderAppointmentTable = (appointments: ApiAppointmentSummary[]) => {
+    if (appointments.length === 0) return null;
 
     return (
-      <Card key={apt.id} className="card-hover group shadow-sm">
-        <CardContent className="p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-            <Avatar className="h-14 w-14 sm:h-16 sm:w-16 border-2 border-border flex-shrink-0">
-              <AvatarImage src={apt.patient.pictureUrl ?? undefined} alt={apt.patient.fullName} />
-              <AvatarFallback className="bg-primary text-primary-foreground text-base sm:text-lg font-semibold">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-
-            <div className="flex-1 min-w-0 space-y-3 w-full">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-base sm:text-lg font-serif font-semibold text-foreground">
-                  {apt.patient.fullName}
-                </h3>
-                <Badge
-                  variant="outline"
-                  className={`text-xs border ${statusClassMap[apt.status] ?? 'bg-muted text-muted-foreground border-border'}`}
-                >
-                  {formatAppointmentStatus(apt.status)}
-                </Badge>
-              </div>
-
-              <p className="text-sm sm:text-base text-muted-foreground font-medium">
-                {formatAppointmentType(apt.type)}
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                  <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
-                  <span className="font-medium truncate">{formattedDate}</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                  <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
-                  <span className="font-medium">{formattedTime}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 text-xs sm:text-sm flex-wrap">
-                <span className="text-muted-foreground">Profesional:</span>
-                <span className="font-semibold text-foreground">{apt.doctor.fullName}</span>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleOpenDetail(apt.id)}
-                disabled={isLoadingDetail}
-                className="w-full sm:w-auto shrink-0"
-              >
-                {isLoadingDetail ? 'Cargando...' : 'Ver Detalles'}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleOpenStatusDialog(apt)}
-                className="w-full sm:w-auto shrink-0"
-              >
-                <Edit2 className="h-3.5 w-3.5 mr-1.5" />
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-border bg-muted/50">
+              <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                Paciente
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                Tipo
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                Fecha
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                Hora
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                Profesional
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
                 Estado
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => router.push(`/paciente/${apt.patient.id}`)}
-                className="w-full sm:w-auto shrink-0"
-              >
-                Ver Paciente
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                Acciones
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {appointments.map((apt) => {
+              const appointmentDate = new Date(apt.scheduledAt);
+              const formattedDate = format(appointmentDate, "d 'de' MMM", { locale: es });
+              const formattedTime = format(appointmentDate, 'HH:mm');
+              const initials = apt.patient.fullName
+                .split(' ')
+                .map((name) => (name ? name[0] : ''))
+                .join('')
+                .slice(0, 2)
+                .toUpperCase();
+              const isLoadingDetail = detailLoading && selectedAppointmentId === apt.id;
+
+              return (
+                <tr 
+                  key={apt.id} 
+                  className="border-b border-border hover:bg-muted/30 transition-colors"
+                >
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={apt.patient.pictureUrl ?? undefined} alt={apt.patient.fullName} />
+                        <AvatarFallback className="bg-primary text-primary-foreground">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-foreground">{apt.patient.fullName}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 text-foreground">
+                    {formatAppointmentType(apt.type)}
+                  </td>
+                  <td className="px-4 py-4 text-foreground">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-sm">{formattedDate}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 text-foreground">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-sm">{formattedTime}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 text-foreground">
+                    {apt.doctor.fullName}
+                  </td>
+                  <td className="px-4 py-4">
+                    <Badge
+                      variant="outline"
+                      className={`text-xs border ${statusClassMap[apt.status] ?? 'bg-muted text-muted-foreground border-border'}`}
+                    >
+                      {formatAppointmentStatus(apt.status)}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleOpenDetail(apt.id)}
+                        disabled={isLoadingDetail}
+                      >
+                        {isLoadingDetail ? 'Cargando...' : 'Ver Detalles'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleOpenStatusDialog(apt)}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     );
   };
 
@@ -427,24 +452,6 @@ export default function Citas() {
           </Alert>
         )}
 
-        {/* Vista de Calendario - Placeholder */}
-        <section className="mb-8">
-          <h2 className="text-xl font-semibold text-foreground mb-4">Vista de Calendario</h2>
-          <Card className="shadow-sm border-dashed border-2">
-            <CardContent className="p-8 sm:p-12 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary/10 mb-4">
-                <Calendar className="h-8 w-8 sm:h-10 sm:w-10 text-primary" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-serif font-semibold text-foreground mb-2">
-                Vista de Calendario
-              </h3>
-              <p className="text-sm sm:text-base text-muted-foreground max-w-md mx-auto">
-                Próximamente podrás visualizar todas tus citas en un calendario interactivo mensual
-              </p>
-            </CardContent>
-          </Card>
-        </section>
-
         {/* Lista de Citas */}
         <section>
           <h2 className="text-xl font-semibold text-foreground mb-4">Lista de Citas</h2>
@@ -467,69 +474,45 @@ export default function Citas() {
               </TabsTrigger>
             </TabsList>
 
-          <TabsContent value="scheduled" className="space-y-4">
+          <TabsContent value="scheduled">
             {loading ? (
-              <Card className="border-dashed">
-                <CardContent className="p-12 text-center text-muted-foreground">
-                  Cargando citas programadas...
-                </CardContent>
-              </Card>
+              <div className="text-center py-12 text-muted-foreground">
+                Cargando citas programadas...
+              </div>
             ) : scheduledAppointments.length > 0 ? (
-              scheduledAppointments.map(renderAppointmentCard)
+              renderAppointmentTable(scheduledAppointments)
             ) : (
-              <Card className="border-dashed">
-                <CardContent className="p-16 text-center">
-                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
-                    <Calendar className="h-10 w-10 text-primary" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No hay citas programadas</h3>
-                  <p className="text-muted-foreground">No se han encontrado citas con estado programado</p>
-                </CardContent>
-              </Card>
+              <div className="text-center py-12 text-muted-foreground">
+                No hay citas programadas
+              </div>
             )}
           </TabsContent>
 
-          <TabsContent value="completed" className="space-y-4">
+          <TabsContent value="completed">
             {loading ? (
-              <Card className="border-dashed">
-                <CardContent className="p-12 text-center text-muted-foreground">
-                  Cargando citas completadas...
-                </CardContent>
-              </Card>
+              <div className="text-center py-12 text-muted-foreground">
+                Cargando citas completadas...
+              </div>
             ) : completedAppointments.length > 0 ? (
-              completedAppointments.map(renderAppointmentCard)
+              renderAppointmentTable(completedAppointments)
             ) : (
-              <Card className="border-dashed">
-                <CardContent className="p-16 text-center">
-                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
-                    <Calendar className="h-10 w-10 text-primary" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No hay citas completadas</h3>
-                  <p className="text-muted-foreground">No se ha encontrado historial de citas completadas</p>
-                </CardContent>
-              </Card>
+              <div className="text-center py-12 text-muted-foreground">
+                No hay citas completadas
+              </div>
             )}
           </TabsContent>
 
-          <TabsContent value="cancelled" className="space-y-4">
+          <TabsContent value="cancelled">
             {loading ? (
-              <Card className="border-dashed">
-                <CardContent className="p-12 text-center text-muted-foreground">
-                  Cargando citas canceladas...
-                </CardContent>
-              </Card>
+              <div className="text-center py-12 text-muted-foreground">
+                Cargando citas canceladas...
+              </div>
             ) : cancelledAppointments.length > 0 ? (
-              cancelledAppointments.map(renderAppointmentCard)
+              renderAppointmentTable(cancelledAppointments)
             ) : (
-              <Card className="border-dashed">
-                <CardContent className="p-16 text-center">
-                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
-                    <Calendar className="h-10 w-10 text-primary" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No hay citas canceladas</h3>
-                  <p className="text-muted-foreground">No se ha encontrado historial de citas canceladas</p>
-                </CardContent>
-              </Card>
+              <div className="text-center py-12 text-muted-foreground">
+                No hay citas canceladas
+              </div>
             )}
           </TabsContent>
         </Tabs>
