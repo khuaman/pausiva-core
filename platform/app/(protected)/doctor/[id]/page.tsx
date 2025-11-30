@@ -187,7 +187,7 @@ export default function DoctorDetailPage() {
 
   // Get appointment type label
   const getAppointmentTypeLabel = (type: string) => {
-    return type === 'pre_consulta' ? 'Pre-consulta' : 'Consulta';
+    return type === 'pre_consulta' ? 'Descubrimiento' : 'Consulta';
   };
 
   if (errorDoctor) {
@@ -325,53 +325,56 @@ export default function DoctorDetailPage() {
           <TabsContent value="overview" className="space-y-6">
             {/* Quick Stats Table */}
             <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-border bg-muted/50">
-                <h2 className="text-lg font-semibold">Estadísticas Generales</h2>
-                <p className="text-sm text-muted-foreground">Resumen de la actividad del doctor</p>
-              </div>
               <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-foreground" colSpan={2}>
+                      Estadísticas Generales
+                    </th>
+                  </tr>
+                </thead>
                 <tbody>
                   <tr className="border-b border-border hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm font-medium">Total de citas</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-4 text-right">
                       <span className="text-2xl font-bold">{appointmentStats.total}</span>
                     </td>
                   </tr>
                   <tr className="border-b border-border hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-green-500" />
                         <span className="text-sm font-medium">Citas completadas</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-4 text-right">
                       <span className="text-2xl font-bold text-green-500">{appointmentStats.completed}</span>
                     </td>
                   </tr>
                   <tr className="border-b border-border hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-blue-500" />
                         <span className="text-sm font-medium">Citas programadas</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-4 text-right">
                       <span className="text-2xl font-bold text-blue-500">{appointmentStats.scheduled}</span>
                     </td>
                   </tr>
                   <tr className="hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm font-medium">Pacientes únicos</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-4 text-right">
                       <span className="text-2xl font-bold">{uniquePatients.length}</span>
                     </td>
                   </tr>
@@ -381,15 +384,18 @@ export default function DoctorDetailPage() {
 
             {/* Professional Info Table */}
             <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-border bg-muted/50">
-                <h2 className="text-lg font-semibold">Información Profesional</h2>
-                <p className="text-sm text-muted-foreground">Datos del doctor</p>
-              </div>
               <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-foreground" colSpan={2}>
+                      Información Profesional
+                    </th>
+                  </tr>
+                </thead>
                 <tbody>
                   <tr className="border-b border-border hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4 font-medium text-sm w-1/3">Especialidad</td>
-                    <td className="px-6 py-4 text-lg font-semibold">
+                    <td className="px-4 py-4 font-medium text-sm w-1/3">Especialidad</td>
+                    <td className="px-4 py-4 text-lg font-semibold">
                       <div className="flex items-center gap-2">
                         <Stethoscope className="h-5 w-5 text-primary" />
                         {doctor.metadata.specialty}
@@ -397,8 +403,8 @@ export default function DoctorDetailPage() {
                     </td>
                   </tr>
                   <tr className="border-b border-border hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4 font-medium text-sm w-1/3">Colegio Médico del Perú</td>
-                    <td className="px-6 py-4 text-lg font-semibold">
+                    <td className="px-4 py-4 font-medium text-sm w-1/3">Colegio Médico del Perú</td>
+                    <td className="px-4 py-4 text-lg font-semibold">
                       <div className="flex items-center gap-2">
                         <IdCard className="h-5 w-5 text-primary" />
                         {doctor.metadata.cmp}
@@ -407,13 +413,13 @@ export default function DoctorDetailPage() {
                   </tr>
                   {doctor.metadata.dni && (
                     <tr className="border-b border-border hover:bg-muted/30 transition-colors">
-                      <td className="px-6 py-4 font-medium text-sm w-1/3">DNI</td>
-                      <td className="px-6 py-4 text-lg font-semibold">{doctor.metadata.dni}</td>
+                      <td className="px-4 py-4 font-medium text-sm w-1/3">DNI</td>
+                      <td className="px-4 py-4 text-lg font-semibold">{doctor.metadata.dni}</td>
                     </tr>
                   )}
                   <tr className="hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4 font-medium text-sm w-1/3">Miembro desde</td>
-                    <td className="px-6 py-4 text-lg font-semibold">
+                    <td className="px-4 py-4 font-medium text-sm w-1/3">Miembro desde</td>
+                    <td className="px-4 py-4 text-lg font-semibold">
                       {format(new Date(doctor.profile.createdAt), 'PP', { locale: es })}
                     </td>
                   </tr>
@@ -423,10 +429,6 @@ export default function DoctorDetailPage() {
 
             {/* Recent Appointments Table */}
             <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-border bg-muted/50">
-                <h2 className="text-lg font-semibold">Citas Recientes</h2>
-                <p className="text-sm text-muted-foreground">Últimas citas atendidas</p>
-              </div>
               {appointments.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   No hay citas registradas
@@ -434,29 +436,29 @@ export default function DoctorDetailPage() {
               ) : (
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-border bg-muted/30">
-                      <th className="px-6 py-3 text-left text-sm font-semibold">Tipo</th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold">Fecha</th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold">Paciente</th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold">Estado</th>
+                    <tr className="border-b border-border bg-muted/50">
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Tipo</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Fecha</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Paciente</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Estado</th>
                     </tr>
                   </thead>
                   <tbody>
                     {appointments.slice(0, 5).map((appointment) => (
                       <tr key={appointment.id} className="border-b border-border hover:bg-muted/30 transition-colors last:border-0">
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           <div className="flex items-center gap-2">
                             <Calendar className="h-4 w-4 text-primary" />
                             <span className="font-medium">{getAppointmentTypeLabel(appointment.type)}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-muted-foreground">
+                        <td className="px-4 py-4 text-sm text-muted-foreground">
                           {format(new Date(appointment.scheduledAt), "PPP", { locale: es })}
                         </td>
-                        <td className="px-6 py-4 text-sm text-muted-foreground">
+                        <td className="px-4 py-4 text-sm text-muted-foreground">
                           {appointment.patient?.fullName || '-'}
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           <Badge variant={getAppointmentStatusVariant(appointment.status)} className="text-xs">
                             {getAppointmentStatusLabel(appointment.status)}
                           </Badge>
@@ -472,10 +474,6 @@ export default function DoctorDetailPage() {
           {/* Appointments Tab */}
           <TabsContent value="appointments" className="space-y-6">
             <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-border bg-muted/50">
-                <h2 className="text-lg font-semibold">Historial de Citas</h2>
-                <p className="text-sm text-muted-foreground">Todas las citas del doctor</p>
-              </div>
               {loadingAppointments ? (
                 <div className="text-center py-12 text-muted-foreground">
                   Cargando citas...
@@ -487,24 +485,24 @@ export default function DoctorDetailPage() {
               ) : (
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-border bg-muted/30">
-                      <th className="px-6 py-3 text-left text-sm font-semibold">Tipo</th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold">Fecha y Hora</th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold">Paciente</th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold">Estado</th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold">Acciones</th>
+                    <tr className="border-b border-border bg-muted/50">
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Tipo</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Fecha y Hora</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Paciente</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Estado</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {appointments.map((appointment) => (
                       <tr key={appointment.id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           <div className="flex items-center gap-2">
                             <Calendar className="h-4 w-4 text-primary" />
                             <span className="font-medium">{getAppointmentTypeLabel(appointment.type)}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           <div className="text-sm">
                             <div className="font-medium">
                               {format(new Date(appointment.scheduledAt), "EEEE, d 'de' MMMM", { locale: es })}
@@ -514,18 +512,18 @@ export default function DoctorDetailPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           <div className="flex items-center gap-2">
                             <User className="h-4 w-4 text-muted-foreground" />
                             <span className="text-sm">{appointment.patient?.fullName || '-'}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           <Badge variant={getAppointmentStatusVariant(appointment.status)}>
                             {getAppointmentStatusLabel(appointment.status)}
                           </Badge>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           <Button variant="outline" size="sm">
                             Ver Detalles
                           </Button>
@@ -541,10 +539,6 @@ export default function DoctorDetailPage() {
           {/* Patients Tab */}
           <TabsContent value="patients" className="space-y-6">
             <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-border bg-muted/50">
-                <h2 className="text-lg font-semibold">Pacientes Atendidos</h2>
-                <p className="text-sm text-muted-foreground">Lista de pacientes únicos atendidos por el doctor</p>
-              </div>
               {uniquePatients.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   No hay pacientes registrados
@@ -552,11 +546,11 @@ export default function DoctorDetailPage() {
               ) : (
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-border bg-muted/30">
-                      <th className="px-6 py-3 text-left text-sm font-semibold">Paciente</th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold">Email</th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold">Total de Citas</th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold">Acciones</th>
+                    <tr className="border-b border-border bg-muted/50">
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Paciente</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Email</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Total de Citas</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -568,7 +562,7 @@ export default function DoctorDetailPage() {
                       
                       return (
                         <tr key={patient.id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-4">
                             <div className="flex items-center gap-3">
                               <Avatar className="h-10 w-10">
                                 <AvatarImage src={patient.pictureUrl || undefined} alt={patient.fullName} />
@@ -579,15 +573,15 @@ export default function DoctorDetailPage() {
                               <span className="font-medium">{patient.fullName}</span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-sm text-muted-foreground">
+                          <td className="px-4 py-4 text-sm text-muted-foreground">
                             {patient.email}
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-4">
                             <Badge variant="outline">
                               {patientAppointments.length} cita{patientAppointments.length !== 1 ? 's' : ''}
                             </Badge>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-4">
                             <Button
                               variant="outline"
                               size="sm"
@@ -609,53 +603,56 @@ export default function DoctorDetailPage() {
           <TabsContent value="statistics" className="space-y-6">
             {/* By Status Table */}
             <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-border bg-muted/50">
-                <h2 className="text-lg font-semibold">Por Estado</h2>
-                <p className="text-sm text-muted-foreground">Distribución de citas por estado</p>
-              </div>
               <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-foreground" colSpan={2}>
+                      Por Estado
+                    </th>
+                  </tr>
+                </thead>
                 <tbody>
                   <tr className="border-b border-border hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-green-500" />
                         <span className="text-sm font-medium">Completadas</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-4 text-right">
                       <span className="font-bold text-lg">{appointmentStats.completed}</span>
                     </td>
                   </tr>
                   <tr className="border-b border-border hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-blue-500" />
                         <span className="text-sm font-medium">Programadas</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-4 text-right">
                       <span className="font-bold text-lg">{appointmentStats.scheduled}</span>
                     </td>
                   </tr>
                   <tr className="border-b border-border hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
                         <XCircle className="h-4 w-4 text-red-500" />
                         <span className="text-sm font-medium">Canceladas</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-4 text-right">
                       <span className="font-bold text-lg">{appointmentStats.cancelled}</span>
                     </td>
                   </tr>
                   <tr className="hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
                         <AlertCircle className="h-4 w-4 text-orange-500" />
                         <span className="text-sm font-medium">No asistió</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-4 text-right">
                       <span className="font-bold text-lg">{appointmentStats.noShow}</span>
                     </td>
                   </tr>
@@ -665,31 +662,34 @@ export default function DoctorDetailPage() {
 
             {/* By Type Table */}
             <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-border bg-muted/50">
-                <h2 className="text-lg font-semibold">Por Tipo</h2>
-                <p className="text-sm text-muted-foreground">Distribución de citas por tipo</p>
-              </div>
               <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-foreground" colSpan={2}>
+                      Por Tipo
+                    </th>
+                  </tr>
+                </thead>
                 <tbody>
                   <tr className="border-b border-border hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium">Pre-consultas</span>
+                        <span className="text-sm font-medium">Descubrimientos</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-4 text-right">
                       <span className="font-bold text-lg">{appointmentStats.preConsulta}</span>
                     </td>
                   </tr>
                   <tr className="hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
                         <Stethoscope className="h-4 w-4 text-primary" />
                         <span className="text-sm font-medium">Consultas</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-4 text-right">
                       <span className="font-bold text-lg">{appointmentStats.consulta}</span>
                     </td>
                   </tr>
@@ -699,43 +699,46 @@ export default function DoctorDetailPage() {
 
             {/* Totals Table */}
             <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-border bg-muted/50">
-                <h2 className="text-lg font-semibold">Totales</h2>
-                <p className="text-sm text-muted-foreground">Resumen general</p>
-              </div>
               <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-foreground" colSpan={2}>
+                      Totales
+                    </th>
+                  </tr>
+                </thead>
                 <tbody>
                   <tr className="border-b border-border hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm font-medium">Total citas</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-4 text-right">
                       <span className="font-bold text-lg">{appointmentStats.total}</span>
                     </td>
                   </tr>
                   <tr className={`${appointmentStats.total > 0 ? 'border-b border-border' : ''} hover:bg-muted/30 transition-colors`}>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm font-medium">Pacientes únicos</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-4 text-right">
                       <span className="font-bold text-lg">{uniquePatients.length}</span>
                     </td>
                   </tr>
                   {appointmentStats.total > 0 && (
                     <tr className="hover:bg-muted/30 transition-colors">
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-4">
                         <div className="flex items-center gap-2">
                           <Activity className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm font-medium">Tasa completadas</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-4 py-4 text-right">
                         <span className="font-bold text-lg">
                           {Math.round((appointmentStats.completed / appointmentStats.total) * 100)}%
                         </span>
