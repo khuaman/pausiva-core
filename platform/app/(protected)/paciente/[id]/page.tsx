@@ -260,7 +260,7 @@ export default function PatientDetailPage() {
       emotional: 'Emocional',
       symptoms: 'Síntomas',
       medications: 'Medicamentos',
-      business: 'Negocio',
+      business: 'Chequeo',
       other: 'Otro',
     };
     return labels[type] || type;
