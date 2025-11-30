@@ -19,7 +19,7 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -163,14 +163,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    // Bypass auth in development if enabled
-    if (getMockDevUser()) {
-      setUser(null);
-      return;
-    }
+    try {
+      // Bypass auth in development if enabled
+      if (getMockDevUser()) {
+        setUser(null);
+        // Use window.location for a hard redirect to ensure clean state
+        window.location.href = '/login';
+        return;
+      }
 
-    await supabase.auth.signOut();
-    setUser(null);
+      // Clear user state immediately to prevent race conditions
+      setUser(null);
+      
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      // Hard redirect to login page
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if signout fails, redirect to login
+      window.location.href = '/login';
+    }
   };
 
   return (
