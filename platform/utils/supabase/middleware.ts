@@ -27,8 +27,20 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // refreshing the auth token
-  await supabase.auth.getUser()
+  // Check user but don't refresh token automatically
+  // This prevents auto-restoration of sessions
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  // If there's no user, clear any lingering auth cookies
+  if (!user) {
+    const authCookies = request.cookies.getAll().filter(cookie => 
+      cookie.name.includes('supabase') || cookie.name.includes('auth')
+    );
+    
+    authCookies.forEach(cookie => {
+      supabaseResponse.cookies.delete(cookie.name);
+    });
+  }
 
   return supabaseResponse
 }
