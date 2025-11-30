@@ -54,24 +54,24 @@ RiskLevel = Literal["none", "low", "medium", "high"]
 def _quick_assess(message: str) -> tuple[RiskLevel, int]:
     """
     Quick risk assessment based on keywords.
-    Returns (risk_level, risk_score 0-100).
+    Returns (risk_level, risk_score 0-10).
     """
     message_lower = message.lower()
 
     # Check high risk
     for keyword in HIGH_RISK_KEYWORDS:
         if keyword in message_lower:
-            return ("high", 85)
+            return ("high", 9)
 
     # Check medium risk
     for keyword in MEDIUM_RISK_KEYWORDS:
         if keyword in message_lower:
-            return ("medium", 50)
+            return ("medium", 5)
 
     # Check symptom mentions
     for keyword in SYMPTOM_KEYWORDS:
         if keyword in message_lower:
-            return ("low", 25)
+            return ("low", 3)
 
     return ("none", 0)
 
@@ -96,25 +96,25 @@ def assess_symptoms(
 
     WHAT IT RETURNS:
     - risk_level: "none", "low", "medium", "high"
-    - risk_score: 0-100
+    - risk_score: 0-10
     - requires_urgent_attention: boolean
     - symptom_summary: brief summary
     - recommended_actions: list of action codes
 
     RISK LEVEL RESPONSE GUIDANCE (FLUJO 6):
 
-    HIGH (risk_score >= 80):
+    HIGH (risk_score >= 8):
     - IMMEDIATELY recommend emergency services
     - Provide emergency numbers: Emergencias 105, Salud en Casa 107
     - Ask if someone can accompany them
     - DO NOT try to diagnose or minimize
 
-    MEDIUM (risk_score 40-79):
+    MEDIUM (risk_score 4-7):
     - Recommend scheduling appointment with doctor
     - Provide self-care recommendations from FLUJO 6.2
     - Be empathetic and validating
 
-    LOW (risk_score 0-39):
+    LOW (risk_score 1-3):
     - Provide comfort and self-care recommendations
     - Remind these are general tips, not medical advice
     - Offer to continue conversation
@@ -194,7 +194,7 @@ def record_symptom_report(
         phone: Patient phone number
         symptom_description: What the patient described (use same text as assess_symptoms)
         risk_level: From assess_symptoms result - "none", "low", "medium", "high"
-        risk_score: From assess_symptoms result - 0-100
+        risk_score: From assess_symptoms result - 0-10
     """
     patient_repo = PatientRepository()
     following_repo = FollowingRepository()
@@ -231,7 +231,7 @@ def get_symptom_history(phone: str, limit: int = 10) -> list[dict]:
 
     RETURNS list of symptom following records with:
     - summary: symptom description
-    - severity_score: 0-100
+    - severity_score: 0-10
     - is_urgent: was it flagged as urgent
     - contacted_at: when they reported it
 
@@ -264,4 +264,3 @@ TRIAGE_TOOLS = [
     record_symptom_report,
     get_symptom_history,
 ]
-

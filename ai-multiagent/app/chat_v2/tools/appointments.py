@@ -160,8 +160,7 @@ def get_next_appointment(phone: str) -> Optional[dict]:
     return appointments[0] if appointments else None
 
 
-# Default doctor ID
-DEFAULT_DOCTOR_ID = ""
+DEFAULT_DOCTOR_ID = "d4d03d47-b205-445e-ac54-dcc66b0b0e57"
 
 
 @tool
@@ -244,6 +243,7 @@ def schedule_meeting(
     # =========================================================================
     appointment = None
     appointment_id = None
+    appointment_created_in_db = False
 
     try:
         # Try to create appointment in DB with default doctor
@@ -257,10 +257,11 @@ def schedule_meeting(
         )
         if appointment:
             appointment_id = appointment.get("id")
+            appointment_created_in_db = True
     except Exception as e:
         print(f"Error creating appointment in DB: {e}")
 
-    # If DB creation failed, create a mock appointment response
+    # If DB creation failed, create a mock appointment response (for UI display only)
     if not appointment:
         appointment_id = str(uuid4())
         appointment = {
@@ -281,13 +282,17 @@ def schedule_meeting(
     # =========================================================================
     formatted_date = scheduled_datetime.strftime("%d/%m/%Y a las %H:%M")
 
+    # Only link appointment_id if appointment was actually created in DB
+    # (foreign key constraint requires it to exist)
+    db_appointment_id = appointment_id if appointment_created_in_db else None
+
     following = following_repo.create(
         patient_id=patient_id,
         following_type="business",
         summary=f"Cita agendada: {formatted_date} - {specialist_type}",
         severity_score=None,
         is_urgent=False,
-        appointment_id=appointment_id,  # Link to the appointment created above
+        appointment_id=db_appointment_id,  # Only link if appointment exists in DB
         conversation_id=conversation_id,  # Map to conversation for CMS
     )
 
@@ -300,6 +305,7 @@ def schedule_meeting(
         "appointment": appointment,
         "following": following,
         "appointment_id": appointment_id,
+        "appointment_in_db": appointment_created_in_db,
         "conversation_id": conversation_id,
         "following_created": following is not None,
         "message": (

@@ -6,7 +6,6 @@ from langchain_core.tools import tool
 
 from app.shared.database import FollowingRepository, PatientRepository
 
-
 FollowingType = Literal["emotional", "symptoms", "medications", "business", "other"]
 
 
@@ -44,11 +43,11 @@ def create_following(
     - "medications": Prescription-related, medication reminders
     - "other": Miscellaneous conversations
 
-    SEVERITY SCORE GUIDELINES (0-100):
-    - 0-25: Low concern, routine interaction
-    - 26-50: Moderate, worth monitoring but not urgent
-    - 51-75: Elevated concern, should follow up soon
-    - 76-100: High priority, requires attention → set is_urgent=True
+    SEVERITY SCORE GUIDELINES (0-10):
+    - 0-2: Low concern, routine interaction
+    - 3-5: Moderate, worth monitoring but not urgent
+    - 6-7: Elevated concern, should follow up soon
+    - 8-10: High priority, requires attention → set is_urgent=True
 
     IMPORTANT:
     - Following records appear in the staff dashboard for patient monitoring
@@ -64,7 +63,7 @@ def create_following(
         phone: Patient phone number
         following_type: "emotional" | "symptoms" | "medications" | "business" | "other"
         summary: Brief description of interaction (e.g., "Reporta bochornos intensos")
-        severity_score: 0-100, use result from assess_symptoms when applicable
+        severity_score: 0-10, use result from assess_symptoms when applicable
         is_urgent: True if requires immediate staff attention (HIGH risk symptoms)
         appointment_id: Link to related appointment UUID if applicable
         conversation_id: Conversation UUID for CMS mapping (from thread_id)
@@ -112,7 +111,7 @@ def get_followings(
     RETURNS list of records with:
     - type: emotional, symptoms, medications, business, other
     - summary: description of the interaction
-    - severity_score: 0-100 if set
+    - severity_score: 0-10 if set
     - is_urgent: boolean
     - contacted_at: when it happened
     - appointment_id: linked appointment if any
@@ -189,4 +188,3 @@ FOLLOWING_TOOLS = [
     get_followings,
     get_urgent_followings,
 ]
-

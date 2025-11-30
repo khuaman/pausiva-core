@@ -23,6 +23,7 @@ class AgentState(TypedDict, total=False):
     - is_new_conversation: True if starting fresh conversation
     - patient_data: Existing patient data if available
     - user_id: Optional user ID
+    - conversation_id: Conversation UUID for CMS mapping (from thread_id)
 
     Output fields (filled by agent, not required as input):
     - risk_level, risk_score, symptom_summary, etc.
@@ -35,6 +36,7 @@ class AgentState(TypedDict, total=False):
     is_new_conversation: bool
     patient_data: dict | None
     user_id: str | None
+    conversation_id: str | None  # For CMS mapping - injected into tools
     # Output fields (optional, filled by agent)
     risk_level: str
     risk_score: int
@@ -68,6 +70,7 @@ def create_agent_node():
             is_new_patient=state.get("is_new_patient", False),
             is_new_conversation=state.get("is_new_conversation", False),
             patient_data=state.get("patient_data"),
+            conversation_id=state.get("conversation_id"),
         )
 
         # Prepare messages with system prompt

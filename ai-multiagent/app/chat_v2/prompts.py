@@ -116,10 +116,19 @@ Información disponible sobre la paciente:
 - Es paciente nueva: {is_new_patient}
 - Es nueva conversación: {is_new_conversation}
 - Datos del paciente: {patient_data}
+- ID de conversación: {conversation_id}
 
 Usa esta información para personalizar tus respuestas y dar continuidad a la conversación.
 
-# IMPORTANTE
+# IMPORTANTE - CONVERSATION_ID
+
+SIEMPRE pasa el `conversation_id` (valor: {conversation_id}) cuando llames a estas herramientas:
+- `schedule_meeting`: pasa conversation_id="{conversation_id}"
+- `create_following`: pasa conversation_id="{conversation_id}"
+
+Esto es OBLIGATORIO para vincular los registros con esta conversación en el CMS.
+
+# OTRAS REGLAS IMPORTANTES
 
 - Siempre usa las herramientas disponibles para obtener y actualizar información
 - No asumas información que no tienes - usa las herramientas para verificar
@@ -133,6 +142,7 @@ def get_system_prompt(
     is_new_patient: bool,
     is_new_conversation: bool,
     patient_data: dict | None,
+    conversation_id: str | None = None,
 ) -> str:
     """
     Get the system prompt with context variables filled in.
@@ -142,6 +152,7 @@ def get_system_prompt(
         is_new_patient: Whether this is a new patient
         is_new_conversation: Whether this is a new conversation
         patient_data: Patient data from database (or None if new)
+        conversation_id: Conversation UUID for CMS mapping
 
     Returns:
         Formatted system prompt
@@ -151,4 +162,5 @@ def get_system_prompt(
         is_new_patient=is_new_patient,
         is_new_conversation=is_new_conversation,
         patient_data=patient_data or "No hay datos previos (paciente nueva)",
+        conversation_id=conversation_id or "no disponible",
     )

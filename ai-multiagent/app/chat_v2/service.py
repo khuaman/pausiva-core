@@ -56,6 +56,7 @@ class ChatServiceV2:
                 "is_new_conversation": is_new_conversation,
                 "patient_data": patient_data,
                 "user_id": user_id,
+                "conversation_id": thread_id,  # Pass thread_id as conversation_id for CMS
             },
             config={
                 "configurable": {"thread_id": thread_id},
