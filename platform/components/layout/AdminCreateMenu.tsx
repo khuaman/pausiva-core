@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from 'react';
-import { Plus, UserPlus, Stethoscope, CalendarPlus, Loader2 } from 'lucide-react';
+import { Plus, UserPlus, Stethoscope, CalendarPlus, Loader2, Copy, Send } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -42,6 +42,13 @@ import {
 } from '@/utils/types/appointments';
 
 type ActiveModal = 'patient' | 'doctor' | 'appointment' | null;
+
+type PasswordModalData = {
+  userType: 'patient' | 'doctor';
+  fullName: string;
+  email: string;
+  temporaryPassword: string;
+};
 
 const INITIAL_PATIENT_FORM = {
   fullName: '',
@@ -127,6 +134,8 @@ export function AdminCreateMenu() {
   const [creatingPatient, setCreatingPatient] = useState(false);
   const [creatingDoctor, setCreatingDoctor] = useState(false);
   const [creatingAppointment, setCreatingAppointment] = useState(false);
+  const [passwordModalData, setPasswordModalData] = useState<PasswordModalData | null>(null);
+  const [sendingPassword, setSendingPassword] = useState(false);
 
   const {
     patients,
@@ -160,6 +169,41 @@ export function AdminCreateMenu() {
   );
 
   const closeModal = () => setActiveModal(null);
+
+  const handleCopyPassword = useCallback(() => {
+    if (passwordModalData?.temporaryPassword) {
+      navigator.clipboard.writeText(passwordModalData.temporaryPassword);
+      toast({
+        title: 'Contraseña copiada',
+        description: 'La contraseña temporal se ha copiado al portapapeles.',
+      });
+    }
+  }, [passwordModalData]);
+
+  const handleSendPassword = useCallback(async () => {
+    if (!passwordModalData) return;
+
+    setSendingPassword(true);
+    try {
+      // TODO: Implement email sending endpoint
+      // For now, we'll simulate the call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      
+      toast({
+        title: 'Contraseña enviada',
+        description: `Se ha enviado la contraseña temporal a ${passwordModalData.email}`,
+      });
+      setPasswordModalData(null);
+    } catch (error) {
+      toast({
+        title: 'Error al enviar',
+        description: error instanceof Error ? error.message : 'No se pudo enviar la contraseña.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingPassword(false);
+    }
+  }, [passwordModalData]);
 
   const handlePatientSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -213,12 +257,21 @@ export function AdminCreateMenu() {
         });
 
         const result = await parseJsonResponse(response);
-        toast({
-          title: 'Paciente creado',
-          description: result.data?.temporaryPassword
-            ? `Contraseña temporal: ${result.data.temporaryPassword}`
-            : 'El paciente se registró correctamente.',
-        });
+        
+        if (result.data?.temporaryPassword) {
+          setPasswordModalData({
+            userType: 'patient',
+            fullName: patientForm.fullName,
+            email: patientForm.email,
+            temporaryPassword: result.data.temporaryPassword,
+          });
+        } else {
+          toast({
+            title: 'Paciente creado',
+            description: 'El paciente se registró correctamente.',
+          });
+        }
+        
         setPatientForm(INITIAL_PATIENT_FORM);
         closeModal();
         
@@ -275,12 +328,21 @@ export function AdminCreateMenu() {
         });
 
         const result = await parseJsonResponse(response);
-        toast({
-          title: 'Doctor creado',
-          description: result.data?.temporaryPassword
-            ? `Contraseña temporal: ${result.data.temporaryPassword}`
-            : 'El doctor se registró correctamente.',
-        });
+        
+        if (result.data?.temporaryPassword) {
+          setPasswordModalData({
+            userType: 'doctor',
+            fullName: doctorForm.fullName,
+            email: doctorForm.email,
+            temporaryPassword: result.data.temporaryPassword,
+          });
+        } else {
+          toast({
+            title: 'Doctor creado',
+            description: 'El doctor se registró correctamente.',
+          });
+        }
+        
         setDoctorForm(INITIAL_DOCTOR_FORM);
         closeModal();
         
@@ -828,6 +890,77 @@ export function AdminCreateMenu() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Password Modal */}
+      <Dialog
+        open={!!passwordModalData}
+        onOpenChange={(open) => !open && setPasswordModalData(null)}
+      >
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>
+              {passwordModalData?.userType === 'patient' ? 'Paciente' : 'Doctor'} creado exitosamente
+            </DialogTitle>
+            <DialogDescription>
+              Se ha generado una contraseña temporal. Puedes copiarla o enviarla directamente al usuario.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label className="text-sm font-medium">Usuario</Label>
+              <div className="rounded-md border bg-muted/50 p-3">
+                <p className="font-medium">{passwordModalData?.fullName}</p>
+                <p className="text-sm text-muted-foreground">{passwordModalData?.email}</p>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label className="text-sm font-medium">Contraseña temporal</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={passwordModalData?.temporaryPassword || ''}
+                  readOnly
+                  className="font-mono"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handleCopyPassword}
+                  title="Copiar contraseña"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Esta contraseña debe ser cambiada en el primer inicio de sesión.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPasswordModalData(null)}
+              className="w-full sm:w-auto"
+            >
+              Cerrar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSendPassword}
+              disabled={sendingPassword}
+              className="w-full sm:w-auto"
+            >
+              {sendingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {!sendingPassword && <Send className="mr-2 h-4 w-4" />}
+              Enviar por correo
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

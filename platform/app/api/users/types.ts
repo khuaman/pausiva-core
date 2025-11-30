@@ -16,6 +16,11 @@ export type ApiPatient = {
   type: 'patient';
   profile: UserProfile;
   metadata: PatientMetadata;
+  stats?: {
+    consultasCount: number;
+    preconsultasCount: number;
+    hasPlans: boolean;
+  };
 };
 
 export type SupabaseUserRow = {

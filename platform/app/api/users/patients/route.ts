@@ -47,7 +47,13 @@ function parseLimit(rawLimit: string | null): number {
 
 type PatientRowWithUser = SupabasePatientRow & { users: SupabaseUserRow };
 
-function mapPatient(row: PatientRowWithUser): ApiPatient {
+type PatientStats = {
+  consultasCount: number;
+  preconsultasCount: number;
+  hasPlans: boolean;
+};
+
+function mapPatient(row: PatientRowWithUser, stats?: PatientStats): ApiPatient {
   const { users, dni, clinical_profile_json } = row;
 
   return {
@@ -66,12 +72,42 @@ function mapPatient(row: PatientRowWithUser): ApiPatient {
       dni,
       clinicalProfile: clinical_profile_json,
     },
+    stats,
+  };
+}
+
+async function fetchPatientStats(
+  client: SupabaseClient,
+  patientId: string
+): Promise<PatientStats> {
+  const [consultasResult, preconsultasResult, plansResult] = await Promise.all([
+    client
+      .from('appointments')
+      .select('*', { count: 'exact', head: true })
+      .eq('patient_id', patientId)
+      .eq('type', 'consulta'),
+    client
+      .from('appointments')
+      .select('*', { count: 'exact', head: true })
+      .eq('patient_id', patientId)
+      .eq('type', 'pre_consulta'),
+    client
+      .from('plans')
+      .select('*', { count: 'exact', head: true })
+      .eq('patient_id', patientId),
+  ]);
+
+  return {
+    consultasCount: consultasResult.count || 0,
+    preconsultasCount: preconsultasResult.count || 0,
+    hasPlans: (plansResult.count || 0) > 0,
   };
 }
 
 async function fetchPatients(
   client: SupabaseClient,
-  { id, limit }: FetchFilters
+  { id, limit }: FetchFilters,
+  includeStats: boolean = false
 ): Promise<ApiPatient[]> {
   let query = client.from('patients').select(PATIENT_SELECT);
 
@@ -94,7 +130,8 @@ async function fetchPatients(
       users: typedRow.users,
     };
 
-    return [mapPatient(safeRow)];
+    const stats = includeStats ? await fetchPatientStats(client, safeRow.id) : undefined;
+    return [mapPatient(safeRow, stats)];
   }
 
   const { data, error } = await query.limit(limit);
@@ -103,9 +140,19 @@ async function fetchPatients(
   }
 
   const typedData = (data ?? []) as unknown as SupabasePatientRow[];
-  return typedData
-    .filter((row): row is PatientRowWithUser => Boolean(row.users))
-    .map(mapPatient);
+  const patientsWithUser = typedData.filter((row): row is PatientRowWithUser => Boolean(row.users));
+
+  if (includeStats) {
+    const patientsWithStats = await Promise.all(
+      patientsWithUser.map(async (row) => {
+        const stats = await fetchPatientStats(client, row.id);
+        return mapPatient(row, stats);
+      })
+    );
+    return patientsWithStats;
+  }
+
+  return patientsWithUser.map((row) => mapPatient(row));
 }
 
 export async function GET(request: NextRequest) {
@@ -114,8 +161,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const idParam = searchParams.get('id');
     const limit = parseLimit(searchParams.get('limit'));
+    const includeStats = searchParams.get('includeStats') === 'true';
 
-    const patients = await fetchPatients(supabase, { id: idParam, limit });
+    const patients = await fetchPatients(supabase, { id: idParam, limit }, includeStats);
     const sorted = patients.sort(
       (a, b) => new Date(b.profile.createdAt).getTime() - new Date(a.profile.createdAt).getTime()
     );

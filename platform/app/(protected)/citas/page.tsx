@@ -86,8 +86,16 @@ export default function Citas() {
   const formatAppointmentType = (type: string) =>
     type.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
-  const formatAppointmentStatus = (status: string) =>
-    status.replace(/_/g, ' ').replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+  const statusLabels: Record<AppointmentStatus, string> = {
+    scheduled: 'Programada',
+    rescheduled: 'Reprogramada',
+    completed: 'Completada',
+    cancelled: 'Cancelada',
+    no_show: 'No Asistió',
+  };
+
+  const formatAppointmentStatus = (status: AppointmentStatus) =>
+    statusLabels[status] || status;
 
   const handleOpenDetail = useCallback(
     async (appointmentId: string) => {

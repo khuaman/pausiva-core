@@ -25,7 +25,7 @@ import { Search, Filter, AlertCircle, Trash2 } from 'lucide-react';
 export default function PacientesPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
-  const { patients, loading, error, refetch } = usePatients({ limit: 50 });
+  const { patients, loading, error, refetch } = usePatients({ limit: 50, includeStats: true });
   const { registerPatientsRefetch } = useDataRefetch();
   const { toast } = useToast();
   const [patientToDelete, setPatientToDelete] = useState<string | null>(null);
@@ -91,17 +91,6 @@ export default function PacientesPage() {
       age--;
     }
     return age;
-  };
-
-  // Determine priority based on symptom score and risk factors
-  const getPriority = (patient: typeof patients[0]) => {
-    const clinicalProfile = patient.metadata.clinicalProfile as any;
-    const symptomScore = clinicalProfile?.symptom_score || 0;
-    const riskFactors = clinicalProfile?.risk_factors || [];
-    
-    if (symptomScore >= 7 || riskFactors.length >= 2) return 'alta';
-    if (symptomScore >= 4 || riskFactors.length >= 1) return 'media';
-    return 'baja';
   };
 
   const filteredPatients = useMemo(() => {
@@ -179,16 +168,13 @@ export default function PacientesPage() {
                     Paciente
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                    Etapa de Menopausia
+                    Consultas
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                    Síntomas
+                    Preconsultas
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                    Factores de Riesgo
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                    Prioridad
+                    Planes
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
                     Acciones
@@ -198,11 +184,9 @@ export default function PacientesPage() {
               <tbody>
                 {filteredPatients.map((patient) => {
                   const age = calculateAge(patient.profile.birthDate);
-                  const priority = getPriority(patient);
-                  const clinicalProfile = patient.metadata.clinicalProfile as any;
-                  const menopauseStage = clinicalProfile?.menopause_stage || 'No especificado';
-                  const symptomScore = clinicalProfile?.symptom_score || 0;
-                  const riskFactors = clinicalProfile?.risk_factors || [];
+                  const consultasCount = patient.stats?.consultasCount || 0;
+                  const preconsultasCount = patient.stats?.preconsultasCount || 0;
+                  const hasPlans = patient.stats?.hasPlans || false;
 
                   return (
                     <tr 
@@ -223,52 +207,26 @@ export default function PacientesPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-foreground capitalize">
-                        {menopauseStage.replace(/_/g, ' ')}
-                      </td>
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[80px]">
-                            <div 
-                              className={`h-2 rounded-full ${
-                                symptomScore >= 7 ? 'bg-red-500' : 
-                                symptomScore >= 4 ? 'bg-yellow-500' : 
-                                'bg-green-500'
-                              }`}
-                              style={{ width: `${Math.min(symptomScore * 10, 100)}%` }}
-                            />
-                          </div>
-                          <span className="text-sm text-foreground">{symptomScore}/10</span>
+                          <span className="text-2xl font-semibold text-foreground">{consultasCount}</span>
                         </div>
                       </td>
                       <td className="px-4 py-4">
-                        {riskFactors.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {riskFactors.slice(0, 2).map((factor: string) => (
-                              <Badge key={factor} variant="outline" className="text-xs capitalize">
-                                {factor.replace(/_/g, ' ')}
-                              </Badge>
-                            ))}
-                            {riskFactors.length > 2 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{riskFactors.length - 2}
-                              </Badge>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">-</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl font-semibold text-foreground">{preconsultasCount}</span>
+                        </div>
                       </td>
                       <td className="px-4 py-4">
-                        <Badge
-                          variant={
-                            priority === 'alta' ? 'destructive' : 
-                            priority === 'media' ? 'default' : 
-                            'secondary'
-                          }
-                        >
-                          {priority.toUpperCase()}
-                        </Badge>
+                        {hasPlans ? (
+                          <Badge variant="default" className="bg-green-600">
+                            Sí
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">
+                            No
+                          </Badge>
+                        )}
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-2">
