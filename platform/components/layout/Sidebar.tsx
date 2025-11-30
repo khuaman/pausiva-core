@@ -10,7 +10,8 @@ export const Sidebar = () => {
   const { user, logout } = useAuth();
 
   const getNavItems = () => {
-    if (user?.role === 'admin') {
+    // Staff users (admin, support, billing, operations) get full access
+    if (user?.role === 'staff') {
       return [
         { to: '/dashboard', icon: Home, label: 'Dashboard' },
         { to: '/pacientes', icon: Users, label: 'Pacientes' },
@@ -26,6 +27,7 @@ export const Sidebar = () => {
         { to: '/configuracion', icon: Settings, label: 'Configuración' },
       ];
     }
+    // Paciente users
     return [
       { to: '/mi-perfil', icon: User, label: 'Mi Perfil' },
       { to: '/mis-citas', icon: Calendar, label: 'Mis Citas' },
@@ -49,7 +51,7 @@ export const Sidebar = () => {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-6 space-y-1">
-        {user?.role === 'admin' && (
+        {user?.role === 'staff' && (
           <div className="mb-4">
             <AdminCreateMenu />
           </div>
@@ -78,7 +80,9 @@ export const Sidebar = () => {
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground truncate">{user?.name}</p>
-            <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
+            <p className="text-xs text-muted-foreground capitalize">
+              {user?.role === 'staff' && user?.staffRole ? user.staffRole : user?.role}
+            </p>
           </div>
         </div>
         <Button

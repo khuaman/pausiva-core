@@ -25,8 +25,11 @@ export default function LoginPage() {
         router.push('/mi-perfil');
       } else if (user.role === 'doctor') {
         router.push('/pacientes');
-      } else {
+      } else if (user.role === 'staff') {
+        // Staff users (admin, support, billing, operations) get full access to dashboard
         router.push('/dashboard');
+      } else {
+        router.push('/mi-perfil');
       }
     }
   }, [user, router]);
@@ -98,7 +101,7 @@ export default function LoginPage() {
           <div className="mt-6 p-4 bg-accent rounded-lg">
             <p className="text-sm font-medium text-foreground mb-2">Usuarios de prueba:</p>
             <div className="space-y-1 text-xs text-muted-foreground">
-              <p>Doctor: gabriela.montes@example.com / password123</p>
+              <p>Admin: admin@pausiva.pe / admin123</p>
               <p>Doctor: sofia.paredes@example.com / password123</p>
             </div>
           </div>
