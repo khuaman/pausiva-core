@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Pausiva - Dashboard Médico",
   description: "Plataforma integral de atención médica para mujeres en perimenopausia y menopausia",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
