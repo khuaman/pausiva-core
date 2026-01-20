@@ -61,6 +61,10 @@ dmypy.json
 # =====================
 
 # Dependencies
+/node_modules
+/dashboard/node_modules
+/wa-agent-gateway/node_modules
+/platform/node_modules  
 node_modules/
 **/node_modules/
 /.pnp
