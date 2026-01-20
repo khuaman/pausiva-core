@@ -4,7 +4,7 @@ import { getAuthenticatedUser } from '../../auth-helpers';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authUser = await getAuthenticatedUser(request);
@@ -16,8 +16,9 @@ export async function GET(
       );
     }
 
-    // For now, hardcoded conversation_id for testing
-    const conversationId = '027d01db-1113-47bb-bc61-b286edfb4a02';
+    // Get conversation ID from params
+    const { id } = await params;
+    const conversationId = id;
     
     const supabase = getServiceSupabaseClient();
 
